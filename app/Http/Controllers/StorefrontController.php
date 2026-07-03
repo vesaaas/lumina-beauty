@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class StorefrontController extends Controller
 {
@@ -162,14 +163,18 @@ class StorefrontController extends Controller
         $quantity = max(1, min(99, (int) $request->input('quantity', 1)));
 
         if (! $request->user()) {
-            $this->putGuestCartQuantity($request, $product, $this->guestCartQuantity($request, $product) + $quantity);
+            $quantity = min(99, $this->guestCartQuantity($request, $product) + $quantity);
+            $this->ensureProductCanBePurchased($product, $quantity);
+            $this->putGuestCartQuantity($request, $product, $quantity);
 
             return back()->with('status', 'Product added to cart.');
         }
 
         $owner = $this->ownerAttributes($request);
         $cartItem = CartItem::firstOrNew($owner + ['product_id' => $product->id]);
-        $cartItem->quantity = min(99, ($cartItem->exists ? $cartItem->quantity : 0) + $quantity);
+        $quantity = min(99, ($cartItem->exists ? $cartItem->quantity : 0) + $quantity);
+        $this->ensureProductCanBePurchased($product, $quantity);
+        $cartItem->quantity = $quantity;
         $cartItem->save();
 
         return back()->with('status', 'Product added to cart.');
@@ -180,6 +185,7 @@ class StorefrontController extends Controller
         abort_unless($this->ownsCartItem($request, $cartItem), 403);
 
         $quantity = max(1, min(99, (int) $request->input('quantity', 1)));
+        $this->ensureProductCanBePurchased($cartItem->product, $quantity);
         $cartItem->update(['quantity' => $quantity]);
 
         return back()->with('status', 'Cart updated.');
@@ -191,6 +197,7 @@ class StorefrontController extends Controller
         abort_unless($product->is_active, 404);
 
         $quantity = max(1, min(99, (int) $request->input('quantity', 1)));
+        $this->ensureProductCanBePurchased($product, $quantity);
         $this->putGuestCartQuantity($request, $product, $quantity);
 
         return back()->with('status', 'Cart updated.');
@@ -239,6 +246,14 @@ class StorefrontController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($request, $cartItems, $attributes): Order {
+            $cartItems = $cartItems->map(function ($item) {
+                $product = Product::whereKey($item->product->id)->lockForUpdate()->firstOrFail();
+                $this->ensureProductCanBePurchased($product, $item->quantity);
+                $item->product = $product;
+
+                return $item;
+            });
+
             $subtotal = $cartItems->sum(fn ($item) => (float) $item->product->price * $item->quantity);
             $total = $cartItems->sum(fn ($item) => (float) $item->product->active_price * $item->quantity);
 
@@ -265,7 +280,7 @@ class StorefrontController extends Controller
                     'line_total' => $unitPrice * $item->quantity,
                 ]);
 
-                $product->decrement('stock', min($product->stock, $item->quantity));
+                $product->decrement('stock', $item->quantity);
             }
 
             $request->user()
@@ -473,6 +488,23 @@ class StorefrontController extends Controller
         $cart[$product->id] = max(1, min(99, $quantity));
 
         $request->session()->put('guest_cart', $cart);
+    }
+
+    private function ensureProductCanBePurchased(Product $product, int $quantity = 1): void
+    {
+        if (! $product->isAvailableForPurchase()) {
+            throw ValidationException::withMessages([
+                'cart' => $product->isOutOfStock()
+                    ? "{$product->name} is out of stock."
+                    : "{$product->name} is unavailable.",
+            ]);
+        }
+
+        if ($quantity > $product->stock) {
+            throw ValidationException::withMessages([
+                'cart' => "Only {$product->stock} {$product->name} available.",
+            ]);
+        }
     }
 
     private function applyProductFilters(Builder|HasMany $query, Request $request, bool $includeCategory = false): void

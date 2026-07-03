@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use LogicException;
 use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public const PRODUCT_TYPES = [
         'Cleanser',
@@ -80,6 +82,7 @@ class Product extends Model
             'properties' => 'array',
             'price' => 'decimal:2',
             'sale_price' => 'decimal:2',
+            'stock' => 'integer',
             'is_featured' => 'boolean',
             'is_new_arrival' => 'boolean',
             'is_hot_trend' => 'boolean',
@@ -90,6 +93,15 @@ class Product extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Product $product): void {
+            if ($product->isForceDeleting()) {
+                throw new LogicException('Products cannot be permanently deleted because they may be referenced by customer orders.');
+            }
+        });
     }
 
     public function category(): BelongsTo
@@ -115,6 +127,16 @@ class Product extends Model
     public function activePrice(): Attribute
     {
         return Attribute::get(fn () => $this->sale_price ?? $this->price);
+    }
+
+    public function isOutOfStock(): bool
+    {
+        return $this->stock <= 0;
+    }
+
+    public function isAvailableForPurchase(): bool
+    {
+        return $this->is_active && ! $this->isOutOfStock();
     }
 
     public function imageUrls(): array
@@ -147,6 +169,8 @@ class Product extends Model
             'price' => (float) $this->price,
             'sale_price' => $this->sale_price === null ? null : (float) $this->sale_price,
             'stock' => $this->stock,
+            'is_out_of_stock' => $this->isOutOfStock(),
+            'is_available_for_purchase' => $this->isAvailableForPurchase(),
             'images' => $this->imageUrls(),
             'description' => $this->description,
             'is_featured' => $this->is_featured,

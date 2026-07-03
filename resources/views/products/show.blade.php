@@ -14,6 +14,9 @@
     <div class="detail-copy">
       <p class="eyebrow">{{ $product['category'] }} / {{ $product['brand'] }}</p>
       <h1>{{ $product['name'] }}</h1>
+      @if ($product['is_out_of_stock'])
+        <span class="stock-badge detail-stock-badge">Out of Stock</span>
+      @endif
       <strong class="price">
         @if (! empty($product['sale_price']))
           <span>{{ Number::currency($product['sale_price'], 'EUR') }}</span>
@@ -24,11 +27,15 @@
       </strong>
       <p>{{ $product['description'] }}</p>
       <div class="detail-actions">
-        <form method="POST" action="{{ route('cart.add', $product['slug']) }}">
-          @csrf
-          <input type="hidden" name="quantity" value="1" />
-          <button class="primary-button" type="submit"><i data-lucide="shopping-bag"></i> Add to Cart</button>
-        </form>
+        @if ($product['is_available_for_purchase'])
+          <form method="POST" action="{{ route('cart.add', $product['slug']) }}">
+            @csrf
+            <input type="hidden" name="quantity" value="1" />
+            <button class="primary-button" type="submit"><i data-lucide="shopping-bag"></i> Add to Cart</button>
+          </form>
+        @else
+          <button class="primary-button" type="button" disabled><i data-lucide="shopping-bag"></i> Out of Stock</button>
+        @endif
         <form method="POST" action="{{ route('favorites.toggle', $product['slug']) }}">
           @csrf
           <button class="secondary-button" type="submit"><i data-lucide="heart"></i> Add Favorite</button>

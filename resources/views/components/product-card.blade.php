@@ -1,9 +1,11 @@
 @props(['product'])
 
-<article class="product-card" data-scroll-reveal-item data-product-card data-product-id="{{ $product['id'] }}" data-name="{{ strtolower($product['name'].' '.$product['brand'].' '.$product['category']) }}">
+<article @class(['product-card', 'is-out-of-stock' => $product['is_out_of_stock']]) data-scroll-reveal-item data-product-card data-product-id="{{ $product['id'] }}" data-name="{{ strtolower($product['name'].' '.$product['brand'].' '.$product['category']) }}">
   <div class="product-media" data-card-gallery>
     <a class="media-link" href="{{ route('products.show', $product['slug']) }}" aria-label="Open {{ $product['name'] }}"></a>
-    @if (! empty($product['sale_price']))
+    @if ($product['is_out_of_stock'])
+      <span class="stock-badge">Out of Stock</span>
+    @elseif (! empty($product['sale_price']))
       <span class="sale-badge">SALE</span>
     @endif
     @foreach ($product['images'] as $index => $image)
@@ -31,9 +33,13 @@
       @endif
     </strong>
     <a class="product-read-more" href="{{ route('products.show', $product['slug']) }}">See More</a>
-    <form method="POST" action="{{ route('cart.add', $product['slug']) }}">
-      @csrf
-      <button class="secondary-button product-cart-button" type="submit"><i data-lucide="shopping-bag"></i> Add to Cart</button>
-    </form>
+    @if ($product['is_available_for_purchase'])
+      <form method="POST" action="{{ route('cart.add', $product['slug']) }}">
+        @csrf
+        <button class="secondary-button product-cart-button" type="submit"><i data-lucide="shopping-bag"></i> Add to Cart</button>
+      </form>
+    @else
+      <button class="secondary-button product-cart-button" type="button" disabled><i data-lucide="shopping-bag"></i> Out of Stock</button>
+    @endif
   </div>
 </article>

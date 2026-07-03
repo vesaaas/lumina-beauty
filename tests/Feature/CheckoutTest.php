@@ -12,6 +12,8 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
+use LogicException;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
@@ -71,6 +73,160 @@ class CheckoutTest extends TestCase
         Mail::assertSent(OrderStatusNotification::class, fn (OrderStatusNotification $mail) => $mail->hasTo('elira@example.com')
             && $mail->notificationType === 'pending'
             && $mail->order->is($order));
+    }
+
+    public function test_out_of_stock_product_cannot_be_added_to_cart(): void
+    {
+        $category = Category::create([
+            'name' => 'Perfume',
+            'slug' => 'perfume',
+        ]);
+        $brand = Brand::create([
+            'name' => 'Lumina',
+            'slug' => 'lumina',
+        ]);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'Sold Out Serum',
+            'slug' => 'sold-out-serum',
+            'description' => 'A sold out treatment.',
+            'price' => 48,
+            'stock' => 0,
+            'is_active' => true,
+        ]);
+
+        $this->post(route('cart.add', $product))
+            ->assertSessionHasErrors('cart');
+
+        $this->assertSame([], session('guest_cart', []));
+    }
+
+    public function test_checkout_rejects_cart_items_that_are_out_of_stock(): void
+    {
+        Mail::fake();
+
+        $user = User::factory()->create();
+        $category = Category::create([
+            'name' => 'Skin Care',
+            'slug' => 'skin-care',
+        ]);
+        $brand = Brand::create([
+            'name' => 'Lumina',
+            'slug' => 'lumina',
+        ]);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'Unavailable Cream',
+            'slug' => 'unavailable-cream',
+            'description' => 'A cream with no stock.',
+            'price' => 42,
+            'stock' => 0,
+            'is_active' => true,
+        ]);
+
+        CartItem::create([
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->actingAs($user)->post(route('checkout.store'), [
+            'customer_name' => 'Elira Customer',
+            'customer_email' => 'elira@example.com',
+            'customer_phone' => '+38344111222',
+            'shipping_address' => 'Mother Teresa Boulevard 10',
+            'shipping_city' => 'Prishtina',
+            'shipping_country' => 'Kosovo',
+        ])->assertSessionHasErrors('cart');
+
+        $this->assertSame(0, Order::count());
+        $this->assertSame(1, CartItem::count());
+        $this->assertSame(0, $product->fresh()->stock);
+        Mail::assertNothingSent();
+    }
+
+    public function test_admin_product_delete_route_is_not_registered(): void
+    {
+        $this->assertFalse(Route::has('admin.products.destroy'));
+    }
+
+    public function test_product_delete_is_soft_and_keeps_order_item_reference(): void
+    {
+        $category = Category::create([
+            'name' => 'Perfume',
+            'slug' => 'perfume',
+        ]);
+        $brand = Brand::create([
+            'name' => 'Lumina',
+            'slug' => 'lumina',
+        ]);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'Archived Perfume',
+            'slug' => 'archived-perfume',
+            'description' => 'A purchased product.',
+            'price' => 88,
+            'stock' => 4,
+            'is_active' => true,
+        ]);
+        $order = Order::create([
+            'order_number' => 'LB-TEST-SOFT-DELETE',
+            'customer_name' => 'Mira Customer',
+            'customer_email' => 'mira@example.com',
+            'shipping_address' => 'Beauty Street 2',
+            'shipping_city' => 'Prishtina',
+            'shipping_country' => 'Kosovo',
+            'subtotal' => 88,
+            'total' => 88,
+        ]);
+        $orderItem = $order->items()->create([
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'brand_name' => $brand->name,
+            'category_name' => $category->name,
+            'unit_price' => 88,
+            'quantity' => 1,
+            'line_total' => 88,
+        ]);
+
+        $product->delete();
+
+        $this->assertSoftDeleted('products', ['id' => $product->id]);
+        $this->assertSame($product->id, $orderItem->fresh()->product_id);
+        $this->assertSame('Archived Perfume', $orderItem->fresh()->product_name);
+    }
+
+    public function test_product_force_delete_is_blocked(): void
+    {
+        $category = Category::create([
+            'name' => 'Skin Care',
+            'slug' => 'skin-care',
+        ]);
+        $brand = Brand::create([
+            'name' => 'Lumina',
+            'slug' => 'lumina',
+        ]);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'Protected Cream',
+            'slug' => 'protected-cream',
+            'description' => 'A product protected from permanent deletion.',
+            'price' => 55,
+            'stock' => 5,
+            'is_active' => true,
+        ]);
+
+        $this->expectException(LogicException::class);
+
+        try {
+            $product->forceDelete();
+        } finally {
+            $this->assertDatabaseHas('products', ['id' => $product->id]);
+        }
     }
 
     public function test_processing_and_completed_status_changes_email_customer(): void

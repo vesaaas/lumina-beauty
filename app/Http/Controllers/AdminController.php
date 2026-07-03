@@ -11,7 +11,6 @@ use App\Mail\OrderStatusNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -122,19 +121,6 @@ class AdminController extends Controller
         $this->storeImages($request, $product);
 
         return redirect()->route('admin.products.index')->with('admin_status', 'Product updated.');
-    }
-
-    public function deleteProduct(Product $product): RedirectResponse
-    {
-        foreach ($product->images as $image) {
-            if (! str_starts_with($image->path, 'http')) {
-                Storage::disk('public')->delete($image->path);
-            }
-        }
-
-        $product->delete();
-
-        return back()->with('admin_status', 'Product deleted.');
     }
 
     public function categories(): View

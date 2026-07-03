@@ -11,7 +11,15 @@
       $cartDiscount = max(0, $cartSubtotal - $cartTotal);
       $shippingTotal = 0;
       $grandTotal = $cartTotal + $shippingTotal;
+      $hasUnavailableItems = $cartItems->contains(fn ($item) => ! $item->product->isAvailableForPurchase() || $item->quantity > $item->product->stock);
     @endphp
+    @if ($errors->any())
+      <div class="form-errors">
+        @foreach ($errors->all() as $error)
+          <p>{{ $error }}</p>
+        @endforeach
+      </div>
+    @endif
     <div class="cart-page-shell">
       <section class="cart-table cart-bag-panel" aria-label="Shopping cart items">
         <div class="cart-panel-heading">
@@ -36,7 +44,12 @@
                 <img src="{{ $product->primaryImage() }}" alt="{{ $product->name }}" />
                 <span>
                   <strong>{{ $product->name }}</strong>
-                  <small>{{ $product->brand?->name }} / {{ $product->category?->name }}</small>
+                  <small>
+                    {{ $product->brand?->name }} / {{ $product->category?->name }}
+                    @if ($product->isOutOfStock())
+                      / Out of Stock
+                    @endif
+                  </small>
                 </span>
               </a>
               <div class="cart-row-details">
@@ -54,9 +67,9 @@
                   <form class="quantity-stepper" method="POST" action="{{ $updateRoute }}" aria-label="Change quantity for {{ $product->name }}">
                     @csrf
                     @method('PATCH')
-                    <button type="submit" name="quantity" value="{{ max(1, $item->quantity - 1) }}" aria-label="Decrease quantity" @disabled($item->quantity <= 1)>−</button>
+                    <button type="submit" name="quantity" value="{{ max(1, $item->quantity - 1) }}" aria-label="Decrease quantity" @disabled($item->quantity <= 1 || $product->isOutOfStock())>−</button>
                     <span>{{ $item->quantity }}</span>
-                    <button type="submit" name="quantity" value="{{ min(99, $item->quantity + 1) }}" aria-label="Increase quantity" @disabled($item->quantity >= 99)>+</button>
+                    <button type="submit" name="quantity" value="{{ min(99, $item->quantity + 1) }}" aria-label="Increase quantity" @disabled($item->quantity >= 99 || $item->quantity >= $product->stock)>+</button>
                   </form>
                 </div>
                 <div class="cart-total-block">
@@ -92,7 +105,11 @@
           <span>Total</span>
           <strong>{{ Number::currency($grandTotal, 'EUR') }}</strong>
         </div>
-        <a class="primary-button cart-checkout-button" href="{{ route('checkout.index') }}"><i data-lucide="credit-card"></i> Proceed to Checkout</a>
+        @if ($hasUnavailableItems)
+          <button class="primary-button cart-checkout-button" type="button" disabled><i data-lucide="credit-card"></i> Review Stock</button>
+        @else
+          <a class="primary-button cart-checkout-button" href="{{ route('checkout.index') }}"><i data-lucide="credit-card"></i> Proceed to Checkout</a>
+        @endif
         <p>Secure checkout with complimentary delivery on selected beauty essentials.</p>
       </aside>
     </div>

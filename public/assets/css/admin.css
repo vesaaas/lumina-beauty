@@ -612,6 +612,11 @@ canvas { display: block; width: 100%; max-width: 100%; }
   vertical-align: middle;
 }
 
+.admin-table tr.is-unavailable td {
+  color: var(--admin-muted);
+  background: #f2eeec;
+}
+
 .admin-table td:first-child { border-radius: 16px 0 0 16px; }
 .admin-table td:last-child { border-radius: 0 16px 16px 0; }
 .admin-table img { width: 56px; height: 56px; object-fit: cover; border-radius: 16px; }
@@ -627,6 +632,11 @@ canvas { display: block; width: 100%; max-width: 100%; }
   font-size: 12px;
   font-weight: 900;
   text-transform: capitalize;
+}
+
+.status-pill.unavailable {
+  background: #e6e0dd;
+  color: var(--admin-muted);
 }
 
 .admin-form {

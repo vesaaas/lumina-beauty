@@ -15,21 +15,22 @@
         <thead><tr><th>Image</th><th>Name</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
         <tbody>
           @foreach ($products as $product)
-            <tr>
+            <tr @class(['is-unavailable' => $product->isOutOfStock()])>
               <td><img src="{{ $product->primaryImage() }}" alt="{{ $product->name }}" /></td>
               <td>{{ $product->name }}</td>
               <td>{{ $product->brand?->name }}</td>
               <td>{{ $product->category?->name }}</td>
               <td>{{ Number::currency($product->active_price, 'EUR') }}</td>
-              <td>{{ $product->stock }}</td>
+              <td>
+                @if ($product->isOutOfStock())
+                  <span class="status-pill unavailable">Out of Stock</span>
+                @else
+                  {{ $product->stock }}
+                @endif
+              </td>
               <td>
                 <div class="stacked-actions">
                   <a class="admin-link-button secondary" href="{{ route('admin.products.edit', $product) }}">Edit</a>
-                  <form method="POST" action="{{ route('admin.products.destroy', $product) }}">
-                    @csrf
-                    @method('DELETE')
-                    <button class="admin-button danger" type="submit">Delete</button>
-                  </form>
                 </div>
               </td>
             </tr>

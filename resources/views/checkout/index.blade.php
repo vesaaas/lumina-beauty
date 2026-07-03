@@ -8,6 +8,14 @@
   @if ($cartItems->isEmpty())
     <div class="empty-state"><i data-lucide="shopping-bag"></i><p>Your cart is empty.</p></div>
   @else
+    @php($hasUnavailableItems = $cartItems->contains(fn ($item) => ! $item->product->isAvailableForPurchase() || $item->quantity > $item->product->stock))
+    @if ($errors->any())
+      <div class="form-errors">
+        @foreach ($errors->all() as $error)
+          <p>{{ $error }}</p>
+        @endforeach
+      </div>
+    @endif
     <section class="checkout-layout">
       <form class="checkout-form" method="POST" action="{{ route('checkout.store') }}">
         @csrf
@@ -17,14 +25,19 @@
         <label>Address <input type="text" name="shipping_address" value="{{ old('shipping_address') }}" required /></label>
         <label>City <input type="text" name="shipping_city" value="{{ old('shipping_city') }}" required /></label>
         <label>Country <input type="text" name="shipping_country" value="{{ old('shipping_country', 'Kosovo') }}" required /></label>
-        <button class="primary-button" type="submit"><i data-lucide="credit-card"></i> Place Order</button>
+        <button class="primary-button" type="submit" @disabled($hasUnavailableItems)><i data-lucide="credit-card"></i> Place Order</button>
       </form>
 
       <aside class="cart-summary checkout-summary">
         <span>Order total</span>
         <strong>{{ Number::currency($cartTotal, 'EUR') }}</strong>
         @foreach ($cartItems as $item)
-          <p>{{ $item->product->name }} x {{ $item->quantity }}</p>
+          <p>
+            {{ $item->product->name }} x {{ $item->quantity }}
+            @if ($item->product->isOutOfStock())
+              / Out of Stock
+            @endif
+          </p>
         @endforeach
       </aside>
     </section>
