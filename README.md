@@ -108,5 +108,5 @@ This application was developed as my Bachelor's Thesis in Computer Science (Soft
 
 **Vesa Sogojeva**
 
-- GitHub: https://github.com/vesaaas
-- LinkedIn: *linkedin.com/in/vesa-sogojeva-49930a1b8*
+- GitHub: [@vesaaas](https://github.com/vesaaas)
+- LinkedIn: [Vesa Sogojeva](https://www.linkedin.com/in/vesa-sogojeva-49930a1b8/)
