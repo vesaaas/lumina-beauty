@@ -31,6 +31,36 @@
           @endforeach
         </select>
       </label>
+      <label>Product Type
+        <select name="product_type" required>
+          @foreach ($filterOptions['product_type'] as $option)
+            <option value="{{ $option }}" @selected(old('product_type', $product->product_type) === $option)>{{ $option }}</option>
+          @endforeach
+        </select>
+      </label>
+      <label>Gender
+        <select name="gender" required>
+          @foreach ($filterOptions['gender'] as $option)
+            <option value="{{ $option }}" @selected(old('gender', $product->gender) === $option)>{{ $option }}</option>
+          @endforeach
+        </select>
+      </label>
+      <label>Size
+        <select name="size" required>
+          @foreach ($filterOptions['size'] as $option)
+            <option value="{{ $option }}" @selected(old('size', $product->size) === $option)>{{ $option }}</option>
+          @endforeach
+        </select>
+      </label>
+      @php($selectedProperties = old('properties', $product->properties ?? []))
+      <div class="full metadata-checks">
+        <span>Properties</span>
+        <div class="check-row">
+          @foreach ($filterOptions['properties'] as $option)
+            <label><input type="checkbox" name="properties[]" value="{{ $option }}" @checked(in_array($option, $selectedProperties, true)) /> {{ $option }}</label>
+          @endforeach
+        </div>
+      </div>
       <label class="full">Description <textarea name="description" rows="5" required>{{ old('description', $product->description) }}</textarea></label>
       <label class="full">Product Images <input type="file" name="images[]" multiple accept="image/*" /></label>
 

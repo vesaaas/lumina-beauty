@@ -8,11 +8,15 @@ use App\Models\Category;
 use App\Models\Favorite;
 use App\Models\Order;
 use App\Models\Product;
+use App\Mail\StorefrontPageMessage;
+use App\Mail\OrderStatusNotification;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class StorefrontController extends Controller
@@ -26,7 +30,7 @@ class StorefrontController extends Controller
     {
         $search = trim((string) $request->query('search'));
 
-        $products = Product::query()
+        $query = Product::query()
             ->with(['brand', 'category', 'images'])
             ->where('is_active', true)
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -36,13 +40,21 @@ class StorefrontController extends Controller
                     ->orWhereHas('brand', fn (Builder $brand) => $brand->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('category', fn (Builder $category) => $category->where('name', 'like', '%'.$search.'%'));
                 });
-            })
-            ->latest()
+            });
+
+        $this->applyProductFilters($query, $request, true);
+        $this->applyProductSorting($query, (string) $request->query('sort', 'default'));
+
+        $products = $query
             ->get()
             ->map->toStorefrontArray()
             ->all();
 
-        return view('products.index', $this->viewData(['filteredProducts' => $products]));
+        return view('products.index', $this->viewData([
+            'categoryFilters' => $this->categoryFilterOptions(),
+            'activeFilters' => $request->only(['category', 'product_type', 'property', 'gender', 'size', 'price_min', 'price_max', 'sort', 'search']),
+            'filteredProducts' => $products,
+        ]));
     }
 
     public function product(Product $product)
@@ -65,7 +77,7 @@ class StorefrontController extends Controller
             ->with(['brand', 'category', 'images'])
             ->where('is_active', true);
 
-        $this->applyCategoryFilters($query, $request);
+        $this->applyProductFilters($query, $request);
         $this->applyProductSorting($query, (string) $request->query('sort', 'default'));
 
         return view('categories.show', $this->viewData([
@@ -263,6 +275,8 @@ class StorefrontController extends Controller
             return $order;
         });
 
+        Mail::to($order->customer_email)->send(new OrderStatusNotification($order, 'pending'));
+
         return redirect()->route('orders.thank-you', $order)->with('status', 'Order placed successfully.');
     }
 
@@ -279,6 +293,41 @@ class StorefrontController extends Controller
     public function contact()
     {
         return view('contact', $this->viewData());
+    }
+
+    public function sendAboutMessage(Request $request): RedirectResponse
+    {
+        $attributes = $request->validateWithBag('about', [
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+            'message' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+
+        Mail::to($this->storefrontInbox())->send(new StorefrontPageMessage(
+            page: 'About Us',
+            messageSubject: 'New Lumina Beauty about page message',
+            attributes: $attributes,
+        ));
+
+        return back()->with('about_status', 'Thank you. Your About Us message was sent.');
+    }
+
+    public function sendContactMessage(Request $request): RedirectResponse
+    {
+        $attributes = $request->validateWithBag('contact', [
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+            'topic' => ['required', 'string', 'max:120'],
+            'message' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+
+        Mail::to($this->storefrontInbox())->send(new StorefrontPageMessage(
+            page: 'Contact Us',
+            messageSubject: 'New Lumina Beauty contact message',
+            attributes: $attributes,
+        ));
+
+        return back()->with('contact_status', 'Thank you. Your message was sent.');
     }
 
     public function hotTrends()
@@ -333,6 +382,11 @@ class StorefrontController extends Controller
                 'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=1500&q=88',
             ],
         ], $extra);
+    }
+
+    private function storefrontInbox(): string
+    {
+        return env('ADMIN_EMAIL', config('mail.from.address'));
     }
 
     private function ownerAttributes(Request $request): array
@@ -421,22 +475,35 @@ class StorefrontController extends Controller
         $request->session()->put('guest_cart', $cart);
     }
 
-    private function applyCategoryFilters(Builder $query, Request $request): void
+    private function applyProductFilters(Builder|HasMany $query, Request $request, bool $includeCategory = false): void
     {
-        foreach (['product_type', 'property', 'gender', 'size'] as $filter) {
-            $value = trim((string) $request->query($filter));
+        if ($includeCategory) {
+            $category = trim((string) $request->query('category'));
 
-            if ($value === '') {
-                continue;
+            if ($category !== '') {
+                $query->whereHas('category', fn (Builder $query) => $query->where('name', $category));
             }
+        }
 
-            $query->where(function (Builder $query) use ($value): void {
-                $query
-                    ->where('name', 'like', '%'.$value.'%')
-                    ->orWhere('description', 'like', '%'.$value.'%')
-                    ->orWhereHas('brand', fn (Builder $brand) => $brand->where('name', 'like', '%'.$value.'%'))
-                    ->orWhereHas('category', fn (Builder $category) => $category->where('name', 'like', '%'.$value.'%'));
-            });
+        $productType = trim((string) $request->query('product_type'));
+        $property = trim((string) $request->query('property', (string) $request->query('properties')));
+        $gender = trim((string) $request->query('gender'));
+        $size = trim((string) $request->query('size'));
+
+        if ($productType !== '') {
+            $query->where('product_type', $productType);
+        }
+
+        if ($property !== '') {
+            $query->whereJsonContains('properties', $property);
+        }
+
+        if ($gender !== '') {
+            $query->where('gender', $gender);
+        }
+
+        if ($size !== '') {
+            $query->where('size', $size);
         }
 
         $min = $request->query('price_min');
@@ -451,7 +518,7 @@ class StorefrontController extends Controller
         }
     }
 
-    private function applyProductSorting(Builder $query, string $sorting): void
+    private function applyProductSorting(Builder|HasMany $query, string $sorting): void
     {
         match ($sorting) {
             'latest' => $query->latest(),
@@ -465,10 +532,11 @@ class StorefrontController extends Controller
     private function categoryFilterOptions(): array
     {
         return [
-            'product_type' => ['Serum', 'Cleanser', 'Moisturizer', 'Cream', 'Lipstick', 'Perfume', 'Hair Treatment'],
-            'property' => ['Hydrating', 'Anti-Aging', 'Oil Control', 'Sensitive Skin', 'Brightening', 'Long Lasting'],
-            'gender' => ['Women', 'Men', 'Unisex'],
-            'size' => ['Travel Size', '30ml', '50ml', '100ml', 'Full Size'],
+            'category' => Category::orderBy('name')->pluck('name')->all(),
+            'product_type' => Product::PRODUCT_TYPES,
+            'property' => Product::PROPERTIES,
+            'gender' => Product::GENDERS,
+            'size' => Product::SIZES,
             'sort' => [
                 'default' => 'Default',
                 'latest' => 'Latest',

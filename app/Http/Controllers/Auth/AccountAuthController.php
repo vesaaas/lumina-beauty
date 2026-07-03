@@ -9,25 +9,102 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class AccountAuthController extends Controller
 {
     public function register(Request $request): RedirectResponse
     {
         $attributes = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s().-]{7,30}$/'],
+            'password' => ['required', 'string', 'min:8'],
         ]);
 
-        $user = User::create($attributes + ['is_admin' => false]);
+        $user = User::create([
+            'name' => trim($attributes['first_name'].' '.$attributes['last_name']),
+            'email' => $attributes['email'],
+            'phone' => $attributes['phone'],
+            'password' => $attributes['password'],
+            'is_admin' => false,
+        ]);
 
         Auth::login($user);
         $this->attachGuestCommerce($request, $user);
         $request->session()->regenerate();
 
         return redirect()->route('home')->with('status', 'Your Lumina Beauty account is ready.');
+    }
+
+    public function showForgotPassword(): View
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendPasswordResetLink(Request $request): RedirectResponse
+    {
+        $attributes = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $user = User::where('email', $attributes['email'])->first();
+
+        if ($user?->is_admin) {
+            throw ValidationException::withMessages([
+                'email' => 'Password reset is available for customer accounts only.',
+            ]);
+        }
+
+        $status = Password::sendResetLink($attributes);
+
+        return $status === Password::RESET_LINK_SENT
+            ? back()->with('status', __($status))
+            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+    }
+
+    public function showResetPassword(Request $request, string $token): View
+    {
+        return view('auth.reset-password', [
+            'token' => $token,
+            'email' => $request->query('email'),
+        ]);
+    }
+
+    public function resetPassword(Request $request): RedirectResponse
+    {
+        $attributes = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
+        $user = User::where('email', $attributes['email'])->first();
+
+        if ($user?->is_admin) {
+            throw ValidationException::withMessages([
+                'email' => 'Password reset is available for customer accounts only.',
+            ]);
+        }
+
+        $status = Password::reset(
+            $attributes,
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => $password,
+                    'remember_token' => Str::random(60),
+                ])->save();
+            },
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('home')->with('account_modal', true)->with('status', __($status))
+            : back()->withErrors(['email' => __($status)])->onlyInput('email');
     }
 
     public function login(Request $request): RedirectResponse
@@ -49,6 +126,15 @@ class AccountAuthController extends Controller
         return redirect()->intended(route('home'));
     }
 
+    public function showAdminLogin(): View|RedirectResponse
+    {
+        if (Auth::user()?->is_admin) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return view('admin.login');
+    }
+
     public function adminLogin(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
@@ -61,7 +147,7 @@ class AccountAuthController extends Controller
 
             throw ValidationException::withMessages([
                 'email' => 'Admin access is available only for developer-created admin accounts.',
-            ])->redirectTo(url()->previous().'#account');
+            ])->redirectTo(route('admin.login'));
         }
 
         $this->attachGuestCommerce($request, Auth::user());

@@ -102,14 +102,22 @@
 
   <section class="section-shell category-section home-section" data-scroll-reveal>
     <h2 class="home-section-title">Categories</h2>
-    <div class="category-showcase">
-      @forelse ($categoryModels->take(4) as $category)
-        <a class="category-card" href="{{ route('categories.show', $category) }}" data-scroll-reveal-item style="--reveal-index: {{ $loop->index }}">
-          <span class="category-name">{{ $category->name }}</span>
-        </a>
-      @empty
-        <div class="empty-state"><i data-lucide="tags"></i><p>No categories are available right now.</p></div>
-      @endforelse
+    <div class="luxury-category-strip" aria-label="Lumina Beauty categories">
+      <a class="luxury-category-link luxury-category-skin" href="{{ route('categories.show', 'skin-care') }}" data-scroll-reveal-item style="--reveal-index: 0">
+        <span class="luxury-category-name">Skin Care</span>
+      </a>
+      <a class="luxury-category-link luxury-category-hair" href="{{ route('categories.show', 'hair-care') }}" data-scroll-reveal-item style="--reveal-index: 1">
+        <span class="luxury-category-name">Hair Care</span>
+      </a>
+      <a class="luxury-category-link luxury-category-makeup" href="{{ route('categories.show', 'makeup') }}" data-scroll-reveal-item style="--reveal-index: 2">
+        <span class="luxury-category-name">Makeup</span>
+      </a>
+      <a class="luxury-category-link luxury-category-perfume" href="{{ route('categories.show', 'perfume') }}" data-scroll-reveal-item style="--reveal-index: 3">
+        <span class="luxury-category-name">Perfume</span>
+      </a>
+      <a class="luxury-category-link luxury-category-body" href="{{ route('categories.show', 'body-care') }}" data-scroll-reveal-item style="--reveal-index: 4">
+        <span class="luxury-category-name">Body Care</span>
+      </a>
     </div>
   </section>
 

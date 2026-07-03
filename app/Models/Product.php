@@ -13,12 +13,58 @@ class Product extends Model
 {
     use HasFactory;
 
+    public const PRODUCT_TYPES = [
+        'Cleanser',
+        'Serum',
+        'Moisturizer',
+        'Toner',
+        'Face Mask',
+        'Shampoo',
+        'Conditioner',
+        'Hair Oil',
+        'Hair Mask',
+        'Foundation',
+        'Lipstick',
+        'Concealer',
+        'Blush',
+        'Mascara',
+        'Eau de Parfum',
+        'Eau de Toilette',
+        'Body Mist',
+    ];
+
+    public const PROPERTIES = [
+        'Hydrating',
+        'Brightening',
+        'Anti-Aging',
+        'Oil Control',
+        'Sensitive Skin',
+        'Long Lasting',
+    ];
+
+    public const GENDERS = [
+        'Women',
+        'Men',
+        'Unisex',
+    ];
+
+    public const SIZES = [
+        '30ml',
+        '50ml',
+        '100ml',
+        '200ml',
+    ];
+
     protected $fillable = [
         'category_id',
         'brand_id',
         'name',
         'slug',
         'description',
+        'product_type',
+        'properties',
+        'gender',
+        'size',
         'price',
         'sale_price',
         'stock',
@@ -31,6 +77,7 @@ class Product extends Model
     protected function casts(): array
     {
         return [
+            'properties' => 'array',
             'price' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'is_featured' => 'boolean',
@@ -93,6 +140,10 @@ class Product extends Model
             'name' => $this->name,
             'brand' => $this->brand?->name,
             'category' => $this->category?->name,
+            'product_type' => $this->product_type,
+            'properties' => $this->properties ?? [],
+            'gender' => $this->gender,
+            'size' => $this->size,
             'price' => (float) $this->price,
             'sale_price' => $this->sale_price === null ? null : (float) $this->sale_price,
             'stock' => $this->stock,

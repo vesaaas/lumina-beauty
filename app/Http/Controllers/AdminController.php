@@ -7,8 +7,10 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Mail\OrderStatusNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -38,12 +40,30 @@ class AdminController extends Controller
             ->orderByDesc('products_count')
             ->take(5)
             ->get();
+        $lowStockProducts = Product::with(['brand', 'category'])
+            ->where('is_active', true)
+            ->orderBy('stock')
+            ->take(5)
+            ->get();
+        $topSellingProducts = Product::with(['brand'])
+            ->withSum('orderItems as sold_units', 'quantity')
+            ->orderByDesc('sold_units')
+            ->take(5)
+            ->get();
+        $recentCustomers = User::where('is_admin', false)
+            ->latest()
+            ->take(5)
+            ->get();
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $saleProductsCount = Product::whereNotNull('sale_price')->count();
 
         return view('admin.dashboard', [
             'totalSales' => $totalSales,
             'totalOrders' => Order::count(),
             'totalUsers' => User::where('is_admin', false)->count(),
             'totalProducts' => Product::count(),
+            'pendingOrders' => $pendingOrders,
+            'saleProductsCount' => $saleProductsCount,
             'monthlySales' => $monthlySales,
             'monthlyTarget' => $monthlyTarget,
             'targetProgress' => $targetProgress,
@@ -51,6 +71,9 @@ class AdminController extends Controller
             'conversionRate' => Product::count() > 0 ? round((Order::count() / max(Product::count(), 1)) * 100, 1) : 0,
             'averageOrderValue' => Order::count() > 0 ? $totalSales / Order::count() : 0,
             'recentOrders' => $orders,
+            'lowStockProducts' => $lowStockProducts,
+            'topSellingProducts' => $topSellingProducts,
+            'recentCustomers' => $recentCustomers,
             'revenueLabels' => $months,
             'revenueValues' => $revenueValues,
             'topCategoryLabels' => $topCategories->pluck('name'),
@@ -71,6 +94,7 @@ class AdminController extends Controller
             'product' => new Product(['is_active' => true]),
             'categories' => Category::orderBy('name')->get(),
             'brands' => Brand::orderBy('name')->get(),
+            'filterOptions' => $this->productFilterOptions(),
         ]);
     }
 
@@ -88,6 +112,7 @@ class AdminController extends Controller
             'product' => $product->load('images'),
             'categories' => Category::orderBy('name')->get(),
             'brands' => Brand::orderBy('name')->get(),
+            'filterOptions' => $this->productFilterOptions(),
         ]);
     }
 
@@ -208,7 +233,12 @@ class AdminController extends Controller
             'status' => ['required', 'in:pending,processing,completed,cancelled'],
         ]);
 
+        $previousStatus = $order->status;
         $order->update($attributes);
+
+        if ($previousStatus !== $order->status && in_array($order->status, ['processing', 'completed'], true)) {
+            Mail::to($order->customer_email)->send(new OrderStatusNotification($order, $order->status));
+        }
 
         return back()->with('admin_status', 'Order status updated.');
     }
@@ -248,6 +278,11 @@ class AdminController extends Controller
             'brand_id' => ['required', 'exists:brands,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
+            'product_type' => ['required', 'string', 'in:'.implode(',', Product::PRODUCT_TYPES)],
+            'properties' => ['required', 'array', 'min:1'],
+            'properties.*' => ['required', 'string', 'in:'.implode(',', Product::PROPERTIES)],
+            'gender' => ['required', 'string', 'in:'.implode(',', Product::GENDERS)],
+            'size' => ['required', 'string', 'in:'.implode(',', Product::SIZES)],
             'price' => ['required', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0', 'lt:price'],
             'stock' => ['required', 'integer', 'min:0'],
@@ -261,6 +296,16 @@ class AdminController extends Controller
         $attributes['is_active'] = $request->boolean('is_active');
 
         return $attributes;
+    }
+
+    private function productFilterOptions(): array
+    {
+        return [
+            'product_type' => Product::PRODUCT_TYPES,
+            'properties' => Product::PROPERTIES,
+            'gender' => Product::GENDERS,
+            'size' => Product::SIZES,
+        ];
     }
 
     private function uniqueSlug(string $name, ?Product $product = null): string

@@ -26,7 +26,7 @@
     <article class="metric-card">
       <span class="metric-icon rose"><i data-lucide="shopping-bag"></i></span>
       <div><p>Total Orders</p><strong>{{ $totalOrders }}</strong></div>
-      <small>Completed checkout records</small>
+      <small>{{ $pendingOrders }} pending for review</small>
     </article>
     <article class="metric-card">
       <span class="metric-icon cream"><i data-lucide="users"></i></span>
@@ -36,7 +36,7 @@
     <article class="metric-card">
       <span class="metric-icon black"><i data-lucide="package"></i></span>
       <div><p>Products</p><strong>{{ $totalProducts }}</strong></div>
-      <small>Active catalog scale</small>
+      <small>{{ $saleProductsCount }} products currently on sale</small>
     </article>
   </section>
 
@@ -79,32 +79,85 @@
       <canvas data-chart="categories" data-labels='@json($topCategoryLabels)' data-values='@json($topCategoryValues)' height="220"></canvas>
     </article>
 
-    <article class="admin-panel stats-panel">
+    <article class="admin-panel summary-panel">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Traffic</p>
-          <h2>Sales Statistics</h2>
+          <p class="eyebrow">Revenue summary</p>
+          <h2>Store Pulse</h2>
         </div>
       </div>
-      <div class="stat-list">
-        <div><span>Store visits</span><strong>{{ number_format($trafficSessions) }}</strong></div>
-        <div><span>Conversion</span><strong>{{ $conversionRate }}%</strong></div>
+      <div class="summary-list">
         <div><span>Average order</span><strong>{{ Number::currency($averageOrderValue, 'EUR') }}</strong></div>
+        <div><span>Pending orders</span><strong>{{ $pendingOrders }}</strong></div>
+        <div><span>Sale products</span><strong>{{ $saleProductsCount }}</strong></div>
       </div>
     </article>
 
-    <article class="admin-panel quick-panel">
+    <article class="admin-panel low-stock-panel">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Navigation</p>
-          <h2>Management Shortcuts</h2>
+          <p class="eyebrow">Inventory</p>
+          <h2>Low Stock Products</h2>
+        </div>
+        <a href="{{ route('admin.products.index') }}">Manage</a>
+      </div>
+      <div class="compact-list">
+        @forelse ($lowStockProducts as $product)
+          <a href="{{ route('admin.products.edit', $product) }}">
+            <span>
+              <strong>{{ $product->name }}</strong>
+              <small>{{ $product->brand?->name }} / {{ $product->category?->name }}</small>
+            </span>
+            <em>{{ $product->stock }} left</em>
+          </a>
+        @empty
+          <p class="dashboard-empty">No active products yet.</p>
+        @endforelse
+      </div>
+    </article>
+
+    <article class="admin-panel top-products-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Merchandising</p>
+          <h2>Top Selling Products</h2>
         </div>
       </div>
-      <div class="quick-grid">
-        <a href="{{ route('admin.products.index') }}"><i data-lucide="package"></i><span>Products</span></a>
-        <a href="{{ route('admin.orders.index') }}"><i data-lucide="receipt-text"></i><span>Orders</span></a>
-        <a href="{{ route('admin.users.index') }}"><i data-lucide="users"></i><span>Customers</span></a>
-        <a href="{{ route('admin.discounts') }}"><i data-lucide="badge-percent"></i><span>Discounts</span></a>
+      <div class="compact-list">
+        @forelse ($topSellingProducts as $product)
+          <a href="{{ route('admin.products.edit', $product) }}">
+            <span>
+              <strong>{{ $product->name }}</strong>
+              <small>{{ $product->brand?->name ?? 'Brand pending' }}</small>
+            </span>
+            <em>{{ (int) ($product->sold_units ?? 0) }} sold</em>
+          </a>
+        @empty
+          <p class="dashboard-empty">Top sellers will appear after orders are placed.</p>
+        @endforelse
+      </div>
+    </article>
+
+    <article class="admin-panel customers-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Customers</p>
+          <h2>Recent Customers</h2>
+        </div>
+        <a href="{{ route('admin.users.index') }}">View all</a>
+      </div>
+      <div class="compact-list">
+        @forelse ($recentCustomers as $customer)
+          <a href="{{ route('admin.users.index') }}">
+            <span>
+              <strong>{{ $customer->name }}</strong>
+              <small>{{ $customer->email }}</small>
+            </span>
+            <em>{{ $customer->created_at->format('d M') }}</em>
+          </a>
+        @empty
+          <p class="dashboard-empty">New registered customers will appear here.</p>
+        @endforelse
       </div>
     </article>
 
@@ -166,7 +219,7 @@
       const step = chartWidth / Math.max(values.length - 1, 1);
 
       ctx.clearRect(0, 0, width, height);
-      ctx.strokeStyle = "#efe3dc";
+      ctx.strokeStyle = "#f0e0e4";
       ctx.lineWidth = 1;
       for (let i = 0; i < 5; i += 1) {
         const y = padding.top + (chartHeight / 4) * i;
@@ -182,8 +235,8 @@
       }));
 
       const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
-      gradient.addColorStop(0, "rgba(195, 143, 128, .32)");
-      gradient.addColorStop(1, "rgba(195, 143, 128, 0)");
+      gradient.addColorStop(0, "rgba(185, 63, 104, .24)");
+      gradient.addColorStop(1, "rgba(185, 63, 104, 0)");
 
       ctx.beginPath();
       points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
@@ -195,7 +248,7 @@
 
       ctx.beginPath();
       points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
-      ctx.strokeStyle = "#9d6d64";
+      ctx.strokeStyle = "#b93f68";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
       ctx.stroke();
@@ -203,11 +256,11 @@
       points.forEach((point) => {
         ctx.beginPath();
         ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = "#2f2522";
+        ctx.fillStyle = "#8e294d";
         ctx.fill();
       });
 
-      ctx.fillStyle = "#8d7b73";
+      ctx.fillStyle = "#756a70";
       ctx.font = "12px Manrope";
       labels.forEach((label, index) => {
         if (index % 2 === 0) ctx.fillText(label, padding.left + index * step - 10, height - 14);
@@ -224,14 +277,14 @@
       labels.forEach((label, index) => {
         const y = 24 + index * (barHeight + barGap);
         const valueWidth = ((width - 150) * (values[index] / max));
-        ctx.fillStyle = "#8d7b73";
+        ctx.fillStyle = "#756a70";
         ctx.font = "12px Manrope";
         ctx.fillText(label, 0, y + 15);
-        ctx.fillStyle = "#f1e4de";
+        ctx.fillStyle = "#f8eef1";
         ctx.fillRect(122, y, width - 150, barHeight);
-        ctx.fillStyle = index === 0 ? "#2f2522" : "#c38f80";
+        ctx.fillStyle = index === 0 ? "#8e294d" : "#b93f68";
         ctx.fillRect(122, y, valueWidth, barHeight);
-        ctx.fillStyle = "#2f2522";
+        ctx.fillStyle = "#21191d";
         ctx.fillText(String(values[index]), width - 18, y + 15);
       });
     };

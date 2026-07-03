@@ -175,17 +175,19 @@
             <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Password <input type="password" name="password" required /></label>
             <label class="checkbox-label"><input type="checkbox" name="remember" value="1" /> Remember me</label>
+            <a class="text-link" href="{{ route('password.request') }}">Forgot Password?</a>
             <button class="primary-button" type="submit">Login</button>
           </form>
           <form class="modal-form" method="POST" action="{{ route('register.submit') }}" data-account-panel="register">
             @csrf
-            <label>Name <input type="text" name="name" value="{{ old('name') }}" required /></label>
+            <label>First Name <input type="text" name="first_name" value="{{ old('first_name') }}" required /></label>
+            <label>Last Name <input type="text" name="last_name" value="{{ old('last_name') }}" required /></label>
             <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
+            <label>Phone Number <input type="tel" name="phone" value="{{ old('phone') }}" required /></label>
             <label>Password <input type="password" name="password" required minlength="8" /></label>
-            <label>Confirm Password <input type="password" name="password_confirmation" required minlength="8" /></label>
             <button class="primary-button" type="submit">Create Account</button>
           </form>
-          <form class="modal-form" method="POST" action="{{ route('admin.login') }}" data-account-panel="admin">
+          <form class="modal-form" method="POST" action="{{ route('admin.login.submit') }}" data-account-panel="admin">
             @csrf
             <label>Admin Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Password <input type="password" name="password" required /></label>

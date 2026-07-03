@@ -71,15 +71,70 @@ const renderFavoritesPage = () => {
 const renderCartPage = () => {
 };
 
+const setupPremiumSelects = () => {
+  const closeSelects = (except = null) => {
+    document.querySelectorAll("[data-premium-select].is-open").forEach((select) => {
+      if (select === except) return;
+      select.classList.remove("is-open");
+      select.querySelector(".premium-select-trigger")?.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  document.querySelectorAll("[data-premium-select]").forEach((select) => {
+    const nativeSelect = select.querySelector("select");
+    const trigger = select.querySelector(".premium-select-trigger");
+    const triggerLabel = trigger?.querySelector("span");
+
+    if (!nativeSelect || !trigger || !triggerLabel) return;
+
+    trigger.addEventListener("click", () => {
+      const isOpen = select.classList.contains("is-open");
+      closeSelects(select);
+      select.classList.toggle("is-open", !isOpen);
+      trigger.setAttribute("aria-expanded", String(!isOpen));
+    });
+
+    select.querySelectorAll("[data-select-value]").forEach((option) => {
+      option.addEventListener("click", () => {
+        nativeSelect.value = option.dataset.selectValue || "";
+        triggerLabel.textContent = option.textContent.trim();
+        select.querySelectorAll("[data-select-value]").forEach((item) => item.classList.toggle("is-selected", item === option));
+        closeSelects();
+        nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-premium-select]")) closeSelects();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSelects();
+  });
+};
+
 const setupAutoFilters = () => {
   document.querySelectorAll("[data-auto-filter]").forEach((form) => {
     let timeout;
-    const submit = () => {
+
+    const prepareFilterSubmit = () => {
+      sessionStorage.setItem("luminaFilterUpdate", "1");
+      const actionUrl = new URL(form.getAttribute("action") || window.location.href, window.location.href);
+      actionUrl.hash = "product-results";
+      form.action = actionUrl.toString();
+
       form.querySelectorAll("input, select").forEach((field) => {
         if (field.value === "") field.disabled = true;
       });
+    };
+
+    const submit = () => {
+      prepareFilterSubmit();
       form.requestSubmit();
     };
+
+    form.addEventListener("submit", prepareFilterSubmit);
 
     form.querySelectorAll("select").forEach((select) => {
       select.addEventListener("change", submit);
@@ -251,11 +306,18 @@ const setupSmoothProductScroll = () => {
 };
 
 const setupScrollReveal = () => {
-  const revealProductSections = [...document.querySelectorAll("[data-scroll-reveal-products]")];
+  const isFilterUpdate = sessionStorage.getItem("luminaFilterUpdate") === "1";
+  if (isFilterUpdate) {
+    sessionStorage.removeItem("luminaFilterUpdate");
+    document.body.classList.add("is-filter-update");
+  }
+
+  const filteredResultCards = new Set(document.querySelectorAll(".is-filtered-results .product-card"));
+  const revealProductSections = isFilterUpdate ? [] : [...document.querySelectorAll("[data-scroll-reveal-products]")];
   const revealItems = [
     ...document.querySelectorAll("[data-scroll-reveal], [data-scroll-reveal-item]"),
     ...revealProductSections,
-  ];
+  ].filter((item) => !filteredResultCards.has(item));
 
   revealProductSections.forEach((section) => {
     section.querySelectorAll(".product-card").forEach((card, index) => {
@@ -312,6 +374,7 @@ updateCounters();
 renderFavoritesPage();
 renderCartPage();
 setupAutoFilters();
+setupPremiumSelects();
 setupGallery();
 setupCardGalleries();
 setupCarouselProgress();
