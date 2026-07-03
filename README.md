@@ -1,35 +1,77 @@
-# Lumina Beauty
+# 💄 Lumina Beauty
 
-A full-stack e-commerce platform for cosmetic products developed as my Bachelor's thesis in Software Engineering.
+A full-stack e-commerce platform for cosmetic products developed as my Bachelor's Thesis in Computer Science (Software Engineering).
 
-## Features
+## 🚀 Overview
+
+Lumina Beauty is a Laravel-based e-commerce application designed to simulate a modern online cosmetics store. The project includes both customer-facing features and an administrative dashboard for managing products, categories, brands, orders, and users.
+
+## ✨ Features
 
 - User Authentication & Authorization
-- Product Management
+- Admin Dashboard
+- Product Management (CRUD)
 - Category Management
 - Brand Management
 - Shopping Cart
 - Favorites (Wishlist)
+- Product Filtering
 - Checkout System
 - Order Management
-- Admin Dashboard
-- Product Filtering
 - Email Notifications (Mailpit)
 
-## Technologies
+## 🛠️ Technologies
 
 - Laravel
 - PHP
 - Blade
 - JavaScript
-- HTML
-- CSS
+- HTML5
+- CSS3
 - MariaDB / MySQL
 - Docker
 - DDEV
 - Mailpit
 
-## Installation
+## 📸 Screenshots
+
+### Home Page
+
+![Home Page](screenshots/home-page.png)
+
+### Products
+
+![Products](screenshots/products-page.png)
+
+### Product Details
+
+![Product Details](screenshots/product-details.png)
+
+### Shopping Cart
+
+![Shopping Cart](screenshots/shopping-cart.png)
+
+### Checkout
+
+![Checkout](screenshots/checkout.png)
+
+### Admin Dashboard
+
+![Admin Dashboard](screenshots/admin-dashboard.png)
+
+### Product Management
+
+![Product Management](screenshots/product-management.png)
+
+### Categories
+
+![Categories](screenshots/categories.png)
+
+### Login
+
+![Login](screenshots/login.png)
+
+## ⚙️ Installation
 
 ```bash
 git clone https://github.com/vesaaas/lumina-beauty.git
@@ -37,29 +79,34 @@ git clone https://github.com/vesaaas/lumina-beauty.git
 cd lumina-beauty
 
 composer install
-
 npm install
 
 cp .env.example .env
-
 php artisan key:generate
+
+ddev start
 
 php artisan migrate --seed
 
 npm run dev
-
-ddev start
 ```
 
-## Screenshots
+## 🎓 Project Purpose
 
-Coming soon.
+This application was developed as my Bachelor's Thesis in Computer Science (Software Engineering). The goal was to design and implement a complete full-stack e-commerce platform using Laravel while following modern software engineering principles, the MVC architecture, and best development practices.
 
-## Project Purpose
+## 🔮 Future Improvements
 
-This project was developed as my Bachelor's thesis in Computer Science (Software Engineering). It demonstrates a complete Laravel-based e-commerce application following MVC architecture and modern web development practices.
+- Payment gateway integration (Stripe / PayPal)
+- Product reviews and ratings
+- Order tracking
+- Stock reservation during checkout
+- Sales analytics dashboard
+- Product recommendations
 
-## Future Improvements
+## 👨‍💻 Author
 
-- Payment gateway integration.
-- Product reviews and ratings.
+**Vesa Sogojeva**
+
+- GitHub: https://github.com/vesaaas
+- LinkedIn: *(your LinkedIn profile)*
