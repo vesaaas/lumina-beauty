@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditLogService;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Order;
@@ -97,13 +98,22 @@ class AdminController extends Controller
         ]);
     }
 
-    public function storeProduct(Request $request): RedirectResponse
-    {
-        $product = Product::create($this->productAttributes($request));
-        $this->storeImages($request, $product);
+   public function storeProduct(Request $request): RedirectResponse
+{
+    $product = Product::create($this->productAttributes($request));
+    $this->storeImages($request, $product);
 
-        return redirect()->route('admin.products.index')->with('admin_status', 'Product created.');
-    }
+    AuditLogService::log(
+        $request,
+        'product.created',
+        $product,
+        [],
+        $product->fresh()->toArray(),
+    );
+
+    return redirect()->route('admin.products.index')
+        ->with('admin_status', 'Product created.');
+}
 
     public function editProduct(Product $product): View
     {
@@ -115,13 +125,26 @@ class AdminController extends Controller
         ]);
     }
 
-    public function updateProduct(Request $request, Product $product): RedirectResponse
-    {
-        $product->update($this->productAttributes($request, $product));
-        $this->storeImages($request, $product);
+   public function updateProduct(Request $request, Product $product): RedirectResponse
+{
+    $oldValues = $product->toArray();
 
-        return redirect()->route('admin.products.index')->with('admin_status', 'Product updated.');
-    }
+    $product->update($this->productAttributes($request, $product));
+    $this->storeImages($request, $product);
+
+    $product->refresh();
+
+    AuditLogService::log(
+        $request,
+        'product.updated',
+        $product,
+        $oldValues,
+        $product->toArray(),
+    );
+
+    return redirect()->route('admin.products.index')
+        ->with('admin_status', 'Product updated.');
+}
 
     public function categories(): View
     {
@@ -131,36 +154,75 @@ class AdminController extends Controller
     }
 
     public function storeCategory(Request $request): RedirectResponse
-    {
-        $attributes = $request->validate([
-            'name' => ['required', 'string', 'max:120', 'unique:categories,name'],
-            'description' => ['nullable', 'string'],
-        ]);
+{
+    $attributes = $request->validate([
+        'name' => ['required', 'string', 'max:120', 'unique:categories,name'],
+        'description' => ['nullable', 'string'],
+    ]);
 
-        Category::create($attributes + ['slug' => Str::slug($attributes['name'])]);
+    $category = Category::create(
+        $attributes + ['slug' => Str::slug($attributes['name'])]
+    );
 
-        return back()->with('admin_status', 'Category created.');
-    }
+    AuditLogService::log(
+        $request,
+        'category.created',
+        $category,
+        [],
+        $category->toArray(),
+    );
 
-    public function updateCategory(Request $request, Category $category): RedirectResponse
-    {
-        $attributes = $request->validate([
-            'name' => ['required', 'string', 'max:120', 'unique:categories,name,'.$category->id],
-            'description' => ['nullable', 'string'],
-        ]);
+    return back()->with('admin_status', 'Category created.');
+}
 
-        $category->update($attributes + ['slug' => Str::slug($attributes['name'])]);
+public function updateCategory(Request $request, Category $category): RedirectResponse
+{
+    $attributes = $request->validate([
+        'name' => ['required', 'string', 'max:120', 'unique:categories,name,'.$category->id],
+        'description' => ['nullable', 'string'],
+    ]);
 
-        return back()->with('admin_status', 'Category updated.');
-    }
+    $oldValues = $category->toArray();
 
-    public function deleteCategory(Category $category): RedirectResponse
-    {
-        abort_if($category->products()->exists(), 422, 'Move or delete products before deleting this category.');
-        $category->delete();
+    $category->update(
+        $attributes + ['slug' => Str::slug($attributes['name'])]
+    );
 
-        return back()->with('admin_status', 'Category deleted.');
-    }
+    $category->refresh();
+
+    AuditLogService::log(
+        $request,
+        'category.updated',
+        $category,
+        $oldValues,
+        $category->toArray(),
+    );
+
+    return back()->with('admin_status', 'Category updated.');
+}
+
+public function deleteCategory(Request $request, Category $category): RedirectResponse
+{
+    abort_if(
+        $category->products()->exists(),
+        422,
+        'Move or delete products before deleting this category.'
+    );
+
+    $oldValues = $category->toArray();
+
+    AuditLogService::log(
+        $request,
+        'category.deleted',
+        $category,
+        $oldValues,
+        [],
+    );
+
+    $category->delete();
+
+    return back()->with('admin_status', 'Category deleted.');
+}
 
     public function brands(): View
     {
@@ -170,37 +232,75 @@ class AdminController extends Controller
     }
 
     public function storeBrand(Request $request): RedirectResponse
-    {
-        $attributes = $request->validate([
-            'name' => ['required', 'string', 'max:120', 'unique:brands,name'],
-            'description' => ['nullable', 'string'],
-        ]);
+{
+    $attributes = $request->validate([
+        'name' => ['required', 'string', 'max:120', 'unique:brands,name'],
+        'description' => ['nullable', 'string'],
+    ]);
 
-        Brand::create($attributes + ['slug' => Str::slug($attributes['name'])]);
+    $brand = Brand::create(
+        $attributes + ['slug' => Str::slug($attributes['name'])]
+    );
 
-        return back()->with('admin_status', 'Brand created.');
-    }
+    AuditLogService::log(
+        $request,
+        'brand.created',
+        $brand,
+        [],
+        $brand->toArray(),
+    );
 
-    public function updateBrand(Request $request, Brand $brand): RedirectResponse
-    {
-        $attributes = $request->validate([
-            'name' => ['required', 'string', 'max:120', 'unique:brands,name,'.$brand->id],
-            'description' => ['nullable', 'string'],
-        ]);
+    return back()->with('admin_status', 'Brand created.');
+}
 
-        $brand->update($attributes + ['slug' => Str::slug($attributes['name'])]);
+public function updateBrand(Request $request, Brand $brand): RedirectResponse
+{
+    $attributes = $request->validate([
+        'name' => ['required', 'string', 'max:120', 'unique:brands,name,'.$brand->id],
+        'description' => ['nullable', 'string'],
+    ]);
 
-        return back()->with('admin_status', 'Brand updated.');
-    }
+    $oldValues = $brand->toArray();
 
-    public function deleteBrand(Brand $brand): RedirectResponse
-    {
-        abort_if($brand->products()->exists(), 422, 'Move or delete products before deleting this brand.');
-        $brand->delete();
+    $brand->update(
+        $attributes + ['slug' => Str::slug($attributes['name'])]
+    );
 
-        return back()->with('admin_status', 'Brand deleted.');
-    }
+    $brand->refresh();
 
+    AuditLogService::log(
+        $request,
+        'brand.updated',
+        $brand,
+        $oldValues,
+        $brand->toArray(),
+    );
+
+    return back()->with('admin_status', 'Brand updated.');
+}
+
+public function deleteBrand(Request $request, Brand $brand): RedirectResponse
+{
+    abort_if(
+        $brand->products()->exists(),
+        422,
+        'Move or delete products before deleting this brand.'
+    );
+
+    $oldValues = $brand->toArray();
+
+    AuditLogService::log(
+        $request,
+        'brand.deleted',
+        $brand,
+        $oldValues,
+        [],
+    );
+
+    $brand->delete();
+
+    return back()->with('admin_status', 'Brand deleted.');
+}
     public function orders(): View
     {
         return view('admin.orders.index', [
@@ -214,20 +314,35 @@ class AdminController extends Controller
     }
 
     public function updateOrder(Request $request, Order $order): RedirectResponse
-    {
-        $attributes = $request->validate([
-            'status' => ['required', 'in:pending,processing,completed,cancelled'],
-        ]);
+{
+    $attributes = $request->validate([
+        'status' => ['required', 'in:pending,processing,completed,cancelled'],
+    ]);
 
-        $previousStatus = $order->status;
-        $order->update($attributes);
+    $previousStatus = $order->status;
 
-        if ($previousStatus !== $order->status && in_array($order->status, ['processing', 'completed'], true)) {
-            Mail::to($order->customer_email)->send(new OrderStatusNotification($order, $order->status));
-        }
+    $order->update($attributes);
 
-        return back()->with('admin_status', 'Order status updated.');
+    if ($previousStatus !== $order->status) {
+        AuditLogService::log(
+            $request,
+            'order.status_updated',
+            $order,
+            ['status' => $previousStatus],
+            ['status' => $order->status],
+        );
     }
+
+    if (
+        $previousStatus !== $order->status
+        && in_array($order->status, ['processing', 'completed'], true)
+    ) {
+        Mail::to($order->customer_email)
+            ->send(new OrderStatusNotification($order, $order->status));
+    }
+
+    return back()->with('admin_status', 'Order status updated.');
+}
 
     public function users(): View
     {
