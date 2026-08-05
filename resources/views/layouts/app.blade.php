@@ -185,6 +185,15 @@
             <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Phone Number <input type="tel" name="phone" value="{{ old('phone') }}" required /></label>
             <label>Password <input type="password" name="password" required minlength="8" /></label>
+            <label>
+    Confirm Password
+    <input
+        type="password"
+        name="password_confirmation"
+        required
+        minlength="8"
+    />
+</label>
             <button class="primary-button" type="submit">Create Account</button>
           </form>
           <form class="modal-form" method="POST" action="{{ route('admin.login.submit') }}" data-account-panel="admin">

@@ -15,16 +15,17 @@ class AccountAuthTest extends TestCase
     public function test_customer_registration_stores_phone_number(): void
     {
         $this->post(route('register.submit'), [
-            'first_name' => 'Elira',
+            'first_name' => 'Vesa',
             'last_name' => 'Beauty',
-            'email' => 'elira@example.com',
+            'email' => 'vesa@example.com',
             'phone' => '+383 44 111 222',
-            'password' => 'password123',
+'password' => 'Password123!',
+'password_confirmation' => 'Password123!',
         ])->assertRedirect(route('home'));
 
         $this->assertDatabaseHas('users', [
-            'name' => 'Elira Beauty',
-            'email' => 'elira@example.com',
+            'name' => 'Vesa Beauty',
+            'email' => 'vesa@example.com',
             'phone' => '+383 44 111 222',
             'is_admin' => false,
         ]);

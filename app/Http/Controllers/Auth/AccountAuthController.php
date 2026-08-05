@@ -24,8 +24,14 @@ class AccountAuthController extends Controller
             'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s().-]{7,30}$/'],
-            'password' => ['required', 'string', 'min:8'],
-        ]);
+'password' => [
+    'required',
+    'confirmed',
+    PasswordRule::min(8)
+        ->mixedCase()
+        ->numbers()
+        ->symbols(),
+],        ]);
 
         $user = User::create([
             'name' => trim($attributes['first_name'].' '.$attributes['last_name']),
@@ -81,8 +87,14 @@ class AccountAuthController extends Controller
         $attributes = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
+'password' => [
+    'required',
+    'confirmed',
+    PasswordRule::min(8)
+        ->mixedCase()
+        ->numbers()
+        ->symbols(),
+],        ]);
 
         $user = User::where('email', $attributes['email'])->first();
 
