@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CartItem;
 use App\Models\Favorite;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+
 
 class AccountAuthController extends Controller
 {
@@ -148,25 +150,35 @@ class AccountAuthController extends Controller
     }
 
     public function adminLogin(Request $request): RedirectResponse
-    {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+{
+    $credentials = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required', 'string'],
+    ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember')) || ! Auth::user()->is_admin) {
-            Auth::logout();
+    if (! Auth::attempt($credentials, $request->boolean('remember')) || ! Auth::user()->is_admin) {
+        AuditLogService::log(
+            $request,
+            'admin.login_failed',
+            null,
+            [],
+            ['email' => $credentials['email']],
+        );
 
-            throw ValidationException::withMessages([
-                'email' => 'Admin access is available only for developer-created admin accounts.',
-            ])->redirectTo(route('admin.login'));
-        }
+        Auth::logout();
 
-        $this->attachGuestCommerce($request, Auth::user());
-        $request->session()->regenerate();
-
-        return redirect()->route('admin.dashboard');
+        throw ValidationException::withMessages([
+            'email' => 'Admin access is available only for developer-created admin accounts.',
+        ])->redirectTo(route('admin.login'));
     }
+
+    $this->attachGuestCommerce($request, Auth::user());
+    $request->session()->regenerate();
+
+    AuditLogService::log($request, 'admin.login');
+
+    return redirect()->route('admin.dashboard');
+}
 
     public function logout(Request $request): RedirectResponse
     {
