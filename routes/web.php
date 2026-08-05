@@ -27,15 +27,36 @@ Route::get('/orders/{order}/thank-you', [StorefrontController::class, 'thankYou'
 Route::get('/account', fn () => redirect()->route('home')->with('account_modal', true))->name('account.index');
 Route::get('/login', fn () => redirect()->route('home')->with('account_modal', true))->name('login');
 Route::get('/register', fn () => redirect()->route('home')->with('account_modal', true))->name('register');
-Route::post('/login', [AccountAuthController::class, 'login'])->name('login.submit');
-Route::post('/register', [AccountAuthController::class, 'register'])->name('register.submit');
-Route::get('/forgot-password', [AccountAuthController::class, 'showForgotPassword'])->middleware('guest')->name('password.request');
-Route::post('/forgot-password', [AccountAuthController::class, 'sendPasswordResetLink'])->middleware('guest')->name('password.email');
-Route::get('/reset-password/{token}', [AccountAuthController::class, 'showResetPassword'])->middleware('guest')->name('password.reset');
-Route::post('/reset-password', [AccountAuthController::class, 'resetPassword'])->middleware('guest')->name('password.update');
-Route::get('/admin/login', [AccountAuthController::class, 'showAdminLogin'])->name('admin.login');
-Route::post('/admin/login', [AccountAuthController::class, 'adminLogin'])->name('admin.login.submit');
-Route::post('/logout', [AccountAuthController::class, 'logout'])->name('logout');
+Route::post('/login', [AccountAuthController::class, 'login'])
+    ->middleware('throttle:5,1')
+    ->name('login.submit');
+Route::post('/register', [AccountAuthController::class, 'register'])
+    ->middleware('throttle:3,10')
+    ->name('register.submit');
+
+Route::get('/forgot-password', [AccountAuthController::class, 'showForgotPassword'])
+    ->middleware('guest')
+    ->name('password.request');
+Route::post('/forgot-password', [AccountAuthController::class, 'sendPasswordResetLink'])
+    ->middleware(['guest', 'throttle:3,10'])
+    ->name('password.email');
+
+Route::get('/reset-password/{token}', [AccountAuthController::class, 'showResetPassword'])
+    ->middleware('guest')
+   ->name('password.reset');
+Route::post('/reset-password', [AccountAuthController::class, 'resetPassword'])
+    ->middleware(['guest', 'throttle:3,10'])
+    ->name('password.update');
+
+Route::get('/admin/login', [AccountAuthController::class, 'showAdminLogin'])
+    ->name('admin.login');
+
+Route::post('/admin/login', [AccountAuthController::class, 'adminLogin'])
+    ->middleware('throttle:5,1')
+    ->name('admin.login.submit');
+
+Route::post('/logout', [AccountAuthController::class, 'logout'])
+    ->name('logout');
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/products', [AdminController::class, 'products'])->name('products.index');
@@ -60,8 +81,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
 });
 Route::get('/about-us', [StorefrontController::class, 'about'])->name('about');
-Route::post('/about-us', [StorefrontController::class, 'sendAboutMessage'])->name('about.send');
+Route::post('/about-us', [StorefrontController::class, 'sendAboutMessage'])
+    ->middleware('throttle:3,10')
+    ->name('about.send');
 Route::get('/contact-us', [StorefrontController::class, 'contact'])->name('contact');
-Route::post('/contact-us', [StorefrontController::class, 'sendContactMessage'])->name('contact.send');
-Route::get('/hot-trends', [StorefrontController::class, 'hotTrends'])->name('hot-trends');
-Route::get('/sales', [StorefrontController::class, 'sales'])->name('sales');
+Route::post('/contact-us', [StorefrontController::class, 'sendContactMessage'])
+    ->middleware('throttle:3,10')
+    ->name('contact.send');
+
+Route::get('/hot-trends', [StorefrontController::class, 'hotTrends'])
+    ->name('hot-trends');
+
+Route::get('/sales', [StorefrontController::class, 'sales'])
+    ->name('sales');
