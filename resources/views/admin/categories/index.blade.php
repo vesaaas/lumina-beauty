@@ -22,20 +22,27 @@
         @foreach ($categories as $category)
           <tr>
             <td>
-              <form class="inline-form" method="POST" action="{{ route('admin.categories.update', $category) }}">
+              <form class="inline-form" method="POST" action="{{ route('admin.categories.update', $category) }}" data-change-tracked-form>
                 @csrf
                 @method('PUT')
                 <input type="text" name="name" value="{{ $category->name }}" required />
                 <input type="hidden" name="description" value="{{ $category->description }}" />
-                <button class="admin-button secondary" type="submit">Save</button>
+                <button class="admin-button secondary" type="submit" data-change-tracked-submit disabled>Save</button>
               </form>
             </td>
             <td>{{ $category->products_count }}</td>
             <td>
-              <form method="POST" action="{{ route('admin.categories.destroy', $category) }}">
+              <form
+                method="POST"
+                action="{{ route('admin.categories.destroy', $category) }}"
+                data-requires-password-confirmation
+                data-confirm-title="Delete category"
+                data-confirm-message="Enter your current password to delete {{ $category->name }}. Categories with products will not be deleted."
+                data-confirm-button="Delete Category"
+              >
                 @csrf
                 @method('DELETE')
-                <button class="admin-button danger" type="submit">Delete</button>
+                <button class="admin-button danger" type="submit" data-password-confirm>Delete</button>
               </form>
             </td>
           </tr>

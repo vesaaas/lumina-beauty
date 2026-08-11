@@ -184,16 +184,20 @@
             <label>Last Name <input type="text" name="last_name" value="{{ old('last_name') }}" required /></label>
             <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Phone Number <input type="tel" name="phone" value="{{ old('phone') }}" required /></label>
-            <label>Password <input type="password" name="password" required minlength="8" /></label>
             <label>
-    Confirm Password
-    <input
-        type="password"
-        name="password_confirmation"
-        required
-        minlength="8"
-    />
-</label>
+              Password
+              <input type="password" name="password" required minlength="8" />
+              <small class="password-help">Use at least 8 characters with uppercase, lowercase, number, and symbol.</small>
+            </label>
+            <label>
+              Confirm Password
+              <input
+                type="password"
+                name="password_confirmation"
+                required
+                minlength="8"
+              />
+            </label>
             <button class="primary-button" type="submit">Create Account</button>
           </form>
           <form class="modal-form" method="POST" action="{{ route('admin.login.submit') }}" data-account-panel="admin">

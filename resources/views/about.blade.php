@@ -12,6 +12,8 @@
     </div>
     <form class="auth-card" method="POST" action="{{ route('about.send') }}">
       @csrf
+      <input class="honeypot-field" type="text" name="website" value="" tabindex="-1" autocomplete="off" aria-hidden="true" />
+      <input type="hidden" name="form_started_at" value="{{ time() }}" />
 
       @if (session('about_status'))
         <p class="form-status">{{ session('about_status') }}</p>

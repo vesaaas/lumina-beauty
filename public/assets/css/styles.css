@@ -2210,6 +2210,43 @@ body.is-filter-update .product-grid.is-filtered-results .product-card {
   margin: 0;
 }
 
+.password-help {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.password-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.password-requirements span {
+  padding: 4px 8px;
+  border: 1px solid rgba(142, 41, 77, 0.13);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.password-requirements span.is-met {
+  border-color: rgba(53, 121, 78, 0.24);
+  color: #35794e;
+  background: rgba(53, 121, 78, 0.08);
+}
+
+.honeypot-field {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+}
+
 @media (max-width: 1080px) {
   .mega-panel {
     min-width: 100%;

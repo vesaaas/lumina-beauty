@@ -25,6 +25,10 @@ body {
   font-family: Manrope, system-ui, sans-serif;
 }
 
+body.admin-modal-lock {
+  overflow: hidden;
+}
+
 .admin-login-body {
   display: grid;
   place-items: center;
@@ -107,6 +111,7 @@ code { color: var(--admin-mauve); font-weight: 800; }
   position: fixed;
   inset: 18px auto 18px 18px;
   width: 282px;
+  height: calc(100vh - 36px);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -116,7 +121,9 @@ code { color: var(--admin-mauve); font-weight: 800; }
   border: 1px solid rgba(255, 250, 250, .13);
   border-radius: 24px;
   box-shadow: 0 30px 80px rgba(63, 36, 54, .22);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 220ms ease, box-shadow 220ms ease;
 }
 
 .admin-sidebar::before {
@@ -132,6 +139,10 @@ code { color: var(--admin-mauve); font-weight: 800; }
 .admin-brand,
 .admin-sidebar nav,
 .sidebar-card { position: relative; z-index: 1; }
+
+.admin-sidebar-toggle {
+  display: none;
+}
 
 .admin-brand {
   display: grid;
@@ -173,7 +184,6 @@ code { color: var(--admin-mauve); font-weight: 800; }
 .admin-sidebar nav {
   display: grid;
   gap: 6px;
-  overflow-y: auto;
   padding-right: 2px;
 }
 
@@ -198,6 +208,22 @@ code { color: var(--admin-mauve); font-weight: 800; }
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
+.admin-sidebar nav a span,
+.sidebar-card a span {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  transition: max-width 180ms ease, opacity 160ms ease;
+}
+
+.admin-brand strong,
+.admin-brand small,
+.admin-sidebar nav p,
+.sidebar-card > span,
+.sidebar-card > strong {
+  transition: opacity 160ms ease;
+}
+
 .admin-sidebar nav a:hover,
 .admin-sidebar nav a.is-active,
 .sidebar-card a:hover {
@@ -210,7 +236,11 @@ code { color: var(--admin-mauve); font-weight: 800; }
   box-shadow: inset 0 0 0 1px rgba(255, 250, 250, .12);
 }
 
-.admin-sidebar svg { width: 18px; height: 18px; }
+.admin-sidebar svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
 
 .sidebar-card {
   margin-top: auto;
@@ -220,7 +250,7 @@ code { color: var(--admin-mauve); font-weight: 800; }
   background: rgba(255, 250, 250, .08);
 }
 
-.sidebar-card span {
+.sidebar-card > span {
   display: block;
   margin-bottom: 4px;
   color: rgba(255, 250, 250, .62);
@@ -228,7 +258,7 @@ code { color: var(--admin-mauve); font-weight: 800; }
   font-weight: 800;
 }
 
-.sidebar-card strong { display: block; margin-bottom: 12px; }
+.sidebar-card > strong { display: block; margin-bottom: 12px; }
 
 .admin-main {
   min-height: 100vh;
@@ -290,6 +320,13 @@ code { color: var(--admin-mauve); font-weight: 800; }
   box-shadow: 0 14px 34px rgba(47, 36, 33, .13);
 }
 
+.admin-button:disabled,
+.admin-button[disabled] {
+  cursor: not-allowed;
+  opacity: .46;
+  box-shadow: none;
+}
+
 .admin-icon-link { width: 44px; padding: 0; background: var(--admin-panel); color: var(--admin-mauve); }
 .admin-icon-link svg,
 .admin-button svg,
@@ -316,6 +353,103 @@ code { color: var(--admin-mauve); font-weight: 800; }
 
 .admin-alert-error { color: #8f3b3b; }
 .admin-alert p { margin: 0; }
+
+.admin-muted {
+  margin: 10px 0 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-modal-overlay[hidden] {
+  display: none !important;
+}
+
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(47, 36, 33, .34);
+  backdrop-filter: blur(10px);
+}
+
+.admin-modal {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid var(--admin-line);
+  border-radius: 18px;
+  background: var(--admin-panel);
+  box-shadow: 0 28px 90px rgba(47, 36, 33, .22);
+}
+
+.admin-modal h2 {
+  margin: 0 0 8px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 30px;
+}
+
+.admin-modal p {
+  margin: 0;
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+
+.admin-modal label {
+  display: grid;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-modal input {
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  outline: 0;
+}
+
+.admin-modal input:focus {
+  border-color: var(--admin-mauve);
+  box-shadow: 0 0 0 4px rgba(139, 91, 102, .12);
+}
+
+.admin-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--admin-rose);
+  color: var(--admin-ink);
+  cursor: pointer;
+}
+
+.admin-modal-close svg {
+  width: 17px;
+  height: 17px;
+}
+
+.admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 
 .dashboard-hero {
   margin-bottom: 20px;
@@ -741,20 +875,7 @@ canvas { display: block; width: 100%; max-width: 100%; }
   }
 }
 
-@media (max-width: 880px) {
-  .admin-sidebar {
-    position: static;
-    width: auto;
-    margin: 14px;
-    border-radius: 24px;
-  }
-
-  .admin-main {
-    margin-left: 0;
-    width: auto;
-    padding: 16px;
-  }
-
+@media (max-width: 1180px) {
   .admin-topbar,
   .dashboard-hero {
     align-items: flex-start;
@@ -776,5 +897,199 @@ canvas { display: block; width: 100%; max-width: 100%; }
   .top-products-panel,
   .customers-panel {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 1180px) and (hover: hover) and (pointer: fine) {
+  .admin-sidebar {
+    inset: 14px auto 14px 14px;
+    width: 82px;
+    height: calc(100vh - 28px);
+    padding: 16px 12px;
+    gap: 16px;
+    z-index: 30;
+  }
+
+  .admin-sidebar:hover,
+  .admin-sidebar:focus-within {
+    width: 282px;
+    padding: 16px 20px;
+    box-shadow: 0 30px 90px rgba(63, 36, 54, .3);
+  }
+
+  .admin-main {
+    margin-left: 112px;
+    width: calc(100% - 112px);
+    padding: 16px 16px 32px;
+  }
+
+  .admin-brand {
+    grid-template-columns: 52px 1fr;
+    min-height: 68px;
+    column-gap: 12px;
+    overflow: hidden;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) .admin-brand {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 14px;
+  }
+
+  .admin-brand strong,
+  .admin-brand small,
+  .admin-sidebar nav p,
+  .sidebar-card > span,
+  .sidebar-card > strong,
+  .admin-sidebar nav a,
+  .sidebar-card a {
+    white-space: nowrap;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) .admin-brand strong,
+  .admin-sidebar:not(:hover):not(:focus-within) .admin-brand small,
+  .admin-sidebar:not(:hover):not(:focus-within) nav p,
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card > span,
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card > strong,
+  .admin-sidebar:not(:hover):not(:focus-within) nav a span,
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card a span {
+    max-width: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) nav p {
+    display: none;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card {
+    margin-top: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .admin-sidebar nav a,
+  .sidebar-card a {
+    overflow: hidden;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) nav,
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card {
+    display: grid;
+    justify-items: center;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) nav a,
+  .admin-sidebar:not(:hover):not(:focus-within) .sidebar-card a {
+    width: 52px;
+    min-height: 46px;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    border-radius: 16px;
+  }
+
+  .admin-sidebar:not(:hover):not(:focus-within) nav a.is-active {
+    background: rgba(255, 250, 250, .14);
+    box-shadow: inset 0 0 0 1px rgba(255, 250, 250, .16);
+  }
+}
+
+@media (max-width: 1180px) and (hover: none) {
+  .admin-sidebar {
+    inset: 12px auto 12px 12px;
+    width: 78px;
+    height: calc(100vh - 24px);
+    padding: 12px 10px;
+    gap: 14px;
+    z-index: 30;
+  }
+
+  .admin-sidebar.is-open {
+    width: min(282px, calc(100vw - 24px));
+    padding: 12px 18px;
+  }
+
+  .admin-sidebar-toggle {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 44px;
+    border: 1px solid rgba(255, 250, 250, .14);
+    border-radius: 16px;
+    background: rgba(255, 250, 250, .1);
+    color: #fffafa;
+  }
+
+  .admin-main {
+    margin-left: 102px;
+    width: calc(100% - 102px);
+    padding: 14px 12px 28px;
+  }
+
+  .admin-brand {
+    grid-template-columns: 52px 1fr;
+    min-height: 68px;
+    column-gap: 12px;
+    overflow: hidden;
+  }
+
+  .admin-sidebar:not(.is-open) .admin-brand {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 14px;
+  }
+
+  .admin-sidebar:not(.is-open) .admin-brand strong,
+  .admin-sidebar:not(.is-open) .admin-brand small,
+  .admin-sidebar:not(.is-open) nav p,
+  .admin-sidebar:not(.is-open) .sidebar-card > span,
+  .admin-sidebar:not(.is-open) .sidebar-card > strong,
+  .admin-sidebar:not(.is-open) nav a span,
+  .admin-sidebar:not(.is-open) .sidebar-card a span {
+    max-width: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .admin-sidebar:not(.is-open) nav p {
+    display: none;
+  }
+
+  .admin-sidebar:not(.is-open) .sidebar-card {
+    margin-top: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .admin-sidebar nav a,
+  .sidebar-card a {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .admin-sidebar:not(.is-open) nav,
+  .admin-sidebar:not(.is-open) .sidebar-card {
+    display: grid;
+    justify-items: center;
+  }
+
+  .admin-sidebar:not(.is-open) nav a,
+  .admin-sidebar:not(.is-open) .sidebar-card a {
+    width: 52px;
+    min-height: 46px;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    border-radius: 16px;
+  }
+
+  .admin-sidebar:not(.is-open) nav a.is-active {
+    background: rgba(255, 250, 250, .14);
+    box-shadow: inset 0 0 0 1px rgba(255, 250, 250, .16);
   }
 }

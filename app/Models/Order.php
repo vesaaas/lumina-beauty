@@ -11,6 +11,31 @@ class Order extends Model
 {
     use HasFactory;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_PROCESSING,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
+    private const ALLOWED_TRANSITIONS = [
+        self::STATUS_PENDING => [
+            self::STATUS_PROCESSING,
+            self::STATUS_CANCELLED,
+        ],
+        self::STATUS_PROCESSING => [
+            self::STATUS_COMPLETED,
+            self::STATUS_CANCELLED,
+        ],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+    ];
+
     protected $fillable = [
         'user_id',
         'order_number',
@@ -43,5 +68,20 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function availableTransitions(): array
+    {
+        return self::ALLOWED_TRANSITIONS[$this->status] ?? [];
+    }
+
+    public function canTransitionTo(string $status): bool
+    {
+        return in_array($status, $this->availableTransitions(), true);
+    }
+
+    public function isTerminal(): bool
+    {
+        return $this->availableTransitions() === [];
     }
 }

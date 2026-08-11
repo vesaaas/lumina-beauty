@@ -15,18 +15,36 @@
     </article>
     <article class="admin-panel">
       <div class="panel-heading"><h2>Status</h2></div>
-      <form class="admin-form" method="POST" action="{{ route('admin.orders.update', $order) }}">
-        @csrf
-        @method('PATCH')
-        <label class="full">Status
-          <select name="status">
-            @foreach (['pending', 'processing', 'completed', 'cancelled'] as $status)
-              <option value="{{ $status }}" @selected($order->status === $status)>{{ Str::title($status) }}</option>
-            @endforeach
-          </select>
-        </label>
-        <div class="form-actions"><button class="admin-button" type="submit">Update Status</button></div>
-      </form>
+      <p><span class="status-pill">{{ Str::title($order->status) }}</span></p>
+      @if ($order->isTerminal())
+        <p class="admin-muted">{{ Str::title($order->status) }} is a final status. This order can no longer be changed.</p>
+      @else
+        <form
+          class="admin-form"
+          method="POST"
+          action="{{ route('admin.orders.update', $order) }}"
+          data-requires-password-confirmation
+          data-confirm-title="Update order status"
+          data-confirm-message="Enter your current password to update this order status."
+          data-confirm-button="Update Status"
+          data-confirm-tone="neutral"
+        >
+          @csrf
+          @method('PATCH')
+          <label class="full">Move Status To
+            <select name="status">
+              <option value="{{ $order->status }}">{{ Str::title($order->status) }} (current)</option>
+              @foreach ($order->availableTransitions() as $status)
+                <option value="{{ $status }}">{{ Str::title($status) }}</option>
+              @endforeach
+            </select>
+          </label>
+
+          <div class="form-actions">
+            <button class="admin-button" type="submit" data-password-confirm>Update Status</button>
+          </div>
+        </form>
+      @endif
     </article>
   </section>
 

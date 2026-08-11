@@ -290,13 +290,17 @@ class StorefrontController extends Controller
             return $order;
         });
 
+        $this->rememberOrderConfirmationAccess($request, $order);
+
         Mail::to($order->customer_email)->send(new OrderStatusNotification($order, 'pending'));
 
         return redirect()->route('orders.thank-you', $order)->with('status', 'Order placed successfully.');
     }
 
-    public function thankYou(Order $order)
+    public function thankYou(Request $request, Order $order)
     {
+        abort_unless($this->canViewOrderConfirmation($request, $order), 403);
+
         return view('orders.thank-you', $this->viewData(['order' => $order->load('items')]));
     }
 
@@ -316,7 +320,10 @@ class StorefrontController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255'],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
+            'website' => ['nullable', 'prohibited'],
+            'form_started_at' => ['required', 'integer', 'max:'.(time() - 2)],
         ]);
+        unset($attributes['website'], $attributes['form_started_at']);
 
         Mail::to($this->storefrontInbox())->send(new StorefrontPageMessage(
             page: 'About Us',
@@ -334,7 +341,10 @@ class StorefrontController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'topic' => ['required', 'string', 'max:120'],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
+            'website' => ['nullable', 'prohibited'],
+            'form_started_at' => ['required', 'integer', 'max:'.(time() - 2)],
         ]);
+        unset($attributes['website'], $attributes['form_started_at']);
 
         Mail::to($this->storefrontInbox())->send(new StorefrontPageMessage(
             page: 'Contact Us',
@@ -402,6 +412,27 @@ class StorefrontController extends Controller
     private function storefrontInbox(): string
     {
         return env('ADMIN_EMAIL', config('mail.from.address'));
+    }
+
+    private function rememberOrderConfirmationAccess(Request $request, Order $order): void
+    {
+        $orderIds = collect($request->session()->get('order_confirmation_ids', []))
+            ->push($order->id)
+            ->unique()
+            ->take(-10)
+            ->values()
+            ->all();
+
+        $request->session()->put('order_confirmation_ids', $orderIds);
+    }
+
+    private function canViewOrderConfirmation(Request $request, Order $order): bool
+    {
+        if ($order->user_id !== null) {
+            return $request->user()?->id === $order->user_id;
+        }
+
+        return in_array($order->id, $request->session()->get('order_confirmation_ids', []), true);
     }
 
     private function ownerAttributes(Request $request): array

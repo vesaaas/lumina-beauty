@@ -293,6 +293,30 @@ const setupAccountModal = () => {
   }
 };
 
+const setupPasswordRequirements = () => {
+  const input = document.querySelector("[data-password-requirements-input]");
+  const panel = document.querySelector("[data-password-requirements]");
+  if (!input || !panel) return;
+
+  const rules = {
+    length: (value) => value.length >= 8,
+    upper: (value) => /[A-Z]/.test(value),
+    lower: (value) => /[a-z]/.test(value),
+    number: (value) => /[0-9]/.test(value),
+    symbol: (value) => /[^A-Za-z0-9]/.test(value),
+  };
+
+  const render = () => {
+    Object.entries(rules).forEach(([name, passes]) => {
+      const item = panel.querySelector(`[data-password-rule="${name}"]`);
+      if (item) item.classList.toggle("is-met", passes(input.value));
+    });
+  };
+
+  input.addEventListener("input", render);
+  render();
+};
+
 const setupSmoothProductScroll = () => {
   document.querySelectorAll("[data-scroll-products]").forEach((link) => {
     link.addEventListener("click", (event) => {
@@ -381,6 +405,7 @@ setupCarouselProgress();
 setupHeroCarousel();
 setupSearch();
 setupAccountModal();
+setupPasswordRequirements();
 setupSmoothProductScroll();
 setupScrollReveal();
 

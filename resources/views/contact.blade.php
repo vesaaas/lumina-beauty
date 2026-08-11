@@ -7,6 +7,8 @@
 
   <form class="auth-card" method="POST" action="{{ route('contact.send') }}">
     @csrf
+    <input class="honeypot-field" type="text" name="website" value="" tabindex="-1" autocomplete="off" aria-hidden="true" />
+    <input type="hidden" name="form_started_at" value="{{ time() }}" />
 
     @if (session('contact_status'))
       <p class="form-status">{{ session('contact_status') }}</p>
