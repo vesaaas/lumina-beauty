@@ -4,7 +4,11 @@ Read with [AUTH_SECURITY.md](AUTH_SECURITY.md), [DATABASE.md](DATABASE.md), and 
 
 ## Admin Authentication
 
-Admin login uses `GET /admin/login` and `POST /admin/login` through `AccountAuthController`. Admin access requires a normal authenticated user with `is_admin = true`.
+Admin login uses `GET /admin/login` and `POST /admin/login` through `AccountAuthController`, then `GET/POST /admin/login/2fa` through `LoginTwoFactorController`. Valid admin credentials are checked through Laravel's auth provider and must belong to a database user with `is_admin = true`. They start an email 2FA challenge without creating a full admin session. Admin access requires successful 2FA and an authenticated user with `is_admin = true`.
+
+Admin login 2FA does not use the public customer registration email OTP workflow. Developer-provisioned admins receive a login 2FA challenge based on valid password credentials plus the `is_admin` database flag.
+
+The admin 2FA challenge renders as a compact security dialog in the admin login visual system. The email is queued after the challenge row is persisted.
 
 Admin routes are grouped as:
 
@@ -14,11 +18,11 @@ Admin routes are grouped as:
 
 The custom `EnsureUserIsAdmin` middleware aborts non-admin users with 403.
 
-Admin URL responses are also covered by no-cache headers so logged-out browser history cannot expose a reusable cached admin page. Unauthenticated admin requests redirect to `admin.login`.
+Admin URL responses are also covered by no-store/no-cache/private headers so logged-out browser history cannot expose a reusable cached admin page. Unauthenticated admin requests redirect to `admin.login`.
 
 ## Single-Admin Decision
 
-The app uses a single developer-created admin account represented by `users.is_admin`. `AdminUserSeeder` reads admin name/email/password from environment variables. Do not introduce a role/permission system unless explicitly requested and covered by a new ADR.
+The app uses a single developer-created admin account represented by `users.is_admin`. `AdminUserSeeder` reads admin name/email/password from environment variables, requires `ADMIN_EMAIL` and `ADMIN_PASSWORD`, creates the admin when no admin exists, and updates an existing admin while preserving admin privilege. If the configured admin email already belongs to a non-admin user, the seeder fails and requires manual database correction instead of silently promoting that customer. Do not introduce a role/permission system unless explicitly requested and covered by a new ADR.
 
 See [adr/002-single-administrator-model.md](adr/002-single-administrator-model.md).
 
@@ -120,6 +124,8 @@ Current settings page is a read-oriented admin view. Do not store credentials in
 - order status update
 
 Audit logging sanitizes password, token, OTP, OAuth, and 2FA secret-like keys before persistence. Never include authentication secrets in audit old/new values.
+
+Admin login audit events include failed password login, 2FA challenge initiation, failed 2FA verification, successful 2FA authentication, and final admin login success. Plaintext codes and passwords are never logged.
 
 ## Destructive/Sensitive Actions
 

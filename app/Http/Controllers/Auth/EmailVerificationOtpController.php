@@ -22,7 +22,7 @@ class EmailVerificationOtpController extends Controller
         }
 
         return view('auth.verify-email-otp', [
-            'email' => $user->email,
+            'email' => $this->maskEmail($user->email),
             'resendCooldownSeconds' => $otpService->secondsUntilResendAvailable($user),
         ]);
     }
@@ -96,5 +96,13 @@ class EmailVerificationOtpController extends Controller
             'status',
             'A new verification code was sent. Your previous code is no longer valid.'
         );
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = explode('@', $email, 2);
+        $visible = mb_substr($local, 0, 2);
+
+        return $visible.str_repeat('*', max(3, mb_strlen($local) - 2)).'@'.$domain;
     }
 }

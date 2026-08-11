@@ -22,6 +22,12 @@ class AuditLogService
         'oauth_secret',
         'two_factor_secret',
         '2fa_secret',
+        'two_factor_code',
+        '2fa_code',
+        'login_code',
+        'app_password',
+        'mail_password',
+        'gmail_app_password',
     ];
 
     public static function log(

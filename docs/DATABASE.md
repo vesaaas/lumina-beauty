@@ -10,6 +10,7 @@ erDiagram
     users ||--o{ favorites : owns
     users ||--o{ orders : places
     users ||--o| email_verification_otps : verifies
+    users ||--o| login_two_factor_challenges : challenges
     users ||--o{ audit_logs : performs
     categories ||--o{ products : groups
     brands ||--o{ products : owns
@@ -151,6 +152,24 @@ Key columns: `user_id` unique, `code_hash`, `expires_at`, `attempts`, `last_sent
 Deletion behavior: cascades when user is deleted.
 
 Security rule: store only hashed codes. Never log or document OTP plaintext codes.
+
+### `login_two_factor_challenges`
+
+Purpose: temporary customer/admin email login 2FA challenges.
+
+Key columns: `user_id`, `context`, `code_hash`, `expires_at`, `attempts`, `last_sent_at`, timestamps.
+
+Constraints: unique `user_id + context`.
+
+Security rule: store only hashed codes. Full Laravel authentication is created only after successful challenge verification; used codes are deleted.
+
+### `guest_checkout_otps`
+
+Purpose: temporary guest checkout email verification before order creation.
+
+Key columns: `session_id` unique, `email`, `code_hash`, `expires_at`, `attempts`, `last_sent_at`, timestamps.
+
+Security rule: store only hashed codes. Pending checkout attributes and OTP row id live in server-side session state; no customer account is created automatically.
 
 ## Laravel System Tables
 

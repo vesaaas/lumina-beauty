@@ -21,15 +21,16 @@
           </div>
         @endif
 
-        <form class="modal-form is-active" method="POST" action="{{ route('password.update') }}">
+        <form class="modal-form is-active" method="POST" action="{{ route('password.update') }}" data-secure-form>
           @csrf
           <input type="hidden" name="token" value="{{ $token }}" />
           <label>Email <input type="email" name="email" value="{{ old('email', $email) }}" required /></label>
           <label>New Password <input type="password" name="password" required minlength="8" /></label>
           <label>Confirm New Password <input type="password" name="password_confirmation" required minlength="8" /></label>
-          <button class="primary-button" type="submit">Reset Password</button>
+          <button class="primary-button" type="submit" data-submit-label="Resetting...">Reset Password</button>
         </form>
       </section>
     </main>
+    <script src="/assets/js/auth.js"></script>
   </body>
 </html>

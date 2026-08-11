@@ -29,7 +29,7 @@ class EmailVerificationOtpTest extends TestCase
             'attempts' => 0,
         ]);
 
-        Mail::assertSent(
+        Mail::assertQueued(
             EmailVerificationOtpMail::class,
             fn (EmailVerificationOtpMail $mail) => $mail->hasTo($user->email)
                 && preg_match('/^\d{6}$/', $mail->code) === 1
@@ -44,9 +44,9 @@ class EmailVerificationOtpTest extends TestCase
             ->post(route('register.submit'), $this->registrationPayload())
             ->assertOk()
             ->assertSee('Verify your email')
-            ->assertSee('otp-customer@example.com');
+            ->assertSee('ot**********@example.com');
 
-        Mail::assertSent(EmailVerificationOtpMail::class, 1);
+        Mail::assertQueued(EmailVerificationOtpMail::class, 1);
     }
 
     public function test_auth_pages_render_with_shared_storefront_layout_data(): void
@@ -153,7 +153,7 @@ class EmailVerificationOtpTest extends TestCase
         $originalOtp = $user->emailVerificationOtp()->firstOrFail();
         $user->emailVerificationOtp()->update(['attempts' => 4]);
 
-        $this->travel(61)->seconds();
+        $this->travel(EmailVerificationOtpService::RESEND_COOLDOWN_SECONDS + 1)->seconds();
 
         $this->actingAs($user)
             ->post(route('verification.otp.resend'))
@@ -166,7 +166,7 @@ class EmailVerificationOtpTest extends TestCase
         $this->assertSame(0, $newOtp->attempts);
         $this->assertTrue($newOtp->expires_at->greaterThan($originalOtp->expires_at));
         $this->assertTrue($newOtp->last_sent_at->greaterThan($originalOtp->last_sent_at));
-        Mail::assertSent(EmailVerificationOtpMail::class, 2);
+        Mail::assertQueued(EmailVerificationOtpMail::class, 2);
     }
 
     public function test_old_otp_fails_after_resend(): void
@@ -180,7 +180,7 @@ class EmailVerificationOtpTest extends TestCase
             'code_hash' => Hash::make($oldCode),
             'expires_at' => now()->addMinutes(10),
             'attempts' => 0,
-            'last_sent_at' => now()->subSeconds(61),
+            'last_sent_at' => now()->subSeconds(EmailVerificationOtpService::RESEND_COOLDOWN_SECONDS + 1),
         ]);
 
         $this->assertTrue(Hash::check(
@@ -197,16 +197,16 @@ class EmailVerificationOtpTest extends TestCase
             ->assertSessionHasErrors('code');
 
         $this->assertNull($user->fresh()->email_verified_at);
-        Mail::assertSent(EmailVerificationOtpMail::class, 1);
+        Mail::assertQueued(EmailVerificationOtpMail::class, 1);
     }
 
-    public function test_resend_before_60_seconds_is_rejected_without_replacing_otp_or_sending_mail(): void
+    public function test_resend_before_cooldown_expires_is_rejected_without_replacing_otp_or_sending_mail(): void
     {
         [$user] = $this->createOtpForUser();
 
         $originalOtp = $user->emailVerificationOtp()->firstOrFail();
 
-        $this->travel(30)->seconds();
+        $this->travel(EmailVerificationOtpService::RESEND_COOLDOWN_SECONDS - 1)->seconds();
 
         $this->actingAs($user)
             ->post(route('verification.otp.resend'))
@@ -217,7 +217,21 @@ class EmailVerificationOtpTest extends TestCase
         $this->assertSame($originalOtp->code_hash, $currentOtp->code_hash);
         $this->assertTrue($originalOtp->expires_at->equalTo($currentOtp->expires_at));
         $this->assertTrue($originalOtp->last_sent_at->equalTo($currentOtp->last_sent_at));
-        Mail::assertSent(EmailVerificationOtpMail::class, 1);
+        Mail::assertQueued(EmailVerificationOtpMail::class, 1);
+    }
+
+    public function test_resend_after_cooldown_expires_is_accepted(): void
+    {
+        [$user] = $this->createOtpForUser();
+
+        $this->travel(EmailVerificationOtpService::RESEND_COOLDOWN_SECONDS + 1)->seconds();
+
+        $this->actingAs($user)
+            ->post(route('verification.otp.resend'))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        Mail::assertQueued(EmailVerificationOtpMail::class, 2);
     }
 
     public function test_verified_user_cannot_open_otp_page_or_resend(): void
@@ -234,7 +248,7 @@ class EmailVerificationOtpTest extends TestCase
             ->post(route('verification.otp.resend'))
             ->assertRedirect(route('home'));
 
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
         $this->assertDatabaseMissing('email_verification_otps', [
             'user_id' => $user->id,
         ]);
@@ -265,7 +279,7 @@ class EmailVerificationOtpTest extends TestCase
 
         app(EmailVerificationOtpService::class)->generateAndSend($user);
 
-        $mail = Mail::sent(EmailVerificationOtpMail::class)->first();
+        $mail = Mail::queued(EmailVerificationOtpMail::class)->first();
 
         $this->assertInstanceOf(EmailVerificationOtpMail::class, $mail);
 

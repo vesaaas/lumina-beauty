@@ -42,6 +42,13 @@ Reusable Blade components:
 - mobile/navigation/search UI
 - scroll/reveal interactions
 
+`public/assets/js/auth.js` progressively enhances authentication forms and challenge dialogs:
+
+- submit-button loading states
+- resend-code countdown labels
+- sensitive password/OTP field clearing on dialog close and bfcache restore
+- basic focus movement into server-rendered auth dialogs
+
 ## Styling
 
 The storefront and admin use custom CSS. Naming is class-based and purpose-specific. Keep UI changes consistent with the existing Blade/CSS structure unless a redesign is explicitly requested.
@@ -49,6 +56,10 @@ The storefront and admin use custom CSS. Naming is class-based and purpose-speci
 ## Account Modal
 
 The account modal is embedded in `resources/views/layouts/app.blade.php` and opened through route flash state or frontend behavior. `/account`, `/login`, and `/register` redirect to home with the modal flag.
+
+Email verification OTP and customer login 2FA routes render as centered account-style dialogs over the storefront shell. The routes remain server-rendered and functional without JavaScript.
+
+Admin login 2FA uses `resources/views/layouts/admin-auth.blade.php` and the shared code-challenge partial for a compact admin security dialog consistent with the admin login page.
 
 ## Admin UI
 

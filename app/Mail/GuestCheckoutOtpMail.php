@@ -5,12 +5,11 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class EmailVerificationOtpMail extends Mailable implements ShouldQueue
+class GuestCheckoutOtpMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -22,14 +21,14 @@ class EmailVerificationOtpMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verify your Lumina Beauty email',
+            subject: 'Confirm your Lumina Beauty checkout email',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            markdown: 'mail.email-verification-otp',
+            markdown: 'mail.guest-checkout-otp',
         );
     }
 

@@ -264,13 +264,54 @@ const setupAccountModal = () => {
   const modal = document.querySelector("[data-account-modal]");
   if (!modal) return;
 
+  const dialog = modal.querySelector("[data-auth-dialog]");
+  const firstFocusableSelector = "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
+  let returnFocusTo = null;
+
+  const clearValidation = () => {
+    modal.querySelectorAll(".form-errors, .form-status").forEach((item) => item.remove());
+  };
+
+  const resetPanel = (panel) => {
+    if (!panel) return;
+    panel.reset();
+    panel.querySelectorAll("input").forEach((input) => {
+      if (["hidden", "submit", "button"].includes(input.type)) return;
+      if (input.type === "checkbox" || input.type === "radio") {
+        input.checked = false;
+        return;
+      }
+      input.value = "";
+    });
+  };
+
+  const resetModal = () => {
+    clearValidation();
+    modal.querySelectorAll("[data-account-panel]").forEach(resetPanel);
+    document.querySelectorAll("[data-account-tab]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.accountTab === "login");
+    });
+    document.querySelectorAll("[data-account-panel]").forEach((panel) => {
+      panel.classList.toggle("is-active", panel.dataset.accountPanel === "login");
+    });
+    if (window.LuminaAuth) window.LuminaAuth.clearSensitiveFields(modal);
+  };
+
   const open = () => {
+    returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("auth-modal-lock");
+    const focusTarget = dialog?.querySelector("[autofocus], ".concat(firstFocusableSelector));
+    if (focusTarget) window.requestAnimationFrame(() => focusTarget.focus());
   };
   const close = () => {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("auth-modal-lock");
+    resetModal();
+    if (returnFocusTo) returnFocusTo.focus();
+    returnFocusTo = null;
   };
 
   document.querySelectorAll("[data-account-open]").forEach((button) => button.addEventListener("click", open));
@@ -283,6 +324,9 @@ const setupAccountModal = () => {
     tab.addEventListener("click", () => {
       document.querySelectorAll("[data-account-tab]").forEach((button) => button.classList.toggle("is-active", button === tab));
       document.querySelectorAll("[data-account-panel]").forEach((panel) => {
+        if (panel.classList.contains("is-active") && panel.dataset.accountPanel !== tab.dataset.accountTab) {
+          resetPanel(panel);
+        }
         panel.classList.toggle("is-active", panel.dataset.accountPanel === tab.dataset.accountTab);
       });
     });
@@ -291,6 +335,10 @@ const setupAccountModal = () => {
   if (window.location.hash === "#account" || modal.classList.contains("is-open")) {
     open();
   }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) close();
+  });
 };
 
 const setupPasswordRequirements = () => {

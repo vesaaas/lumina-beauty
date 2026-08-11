@@ -5,31 +5,31 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class EmailVerificationOtpMail extends Mailable implements ShouldQueue
+class LoginTwoFactorCodeMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
     public function __construct(
-        public string $code
+        public string $code,
+        public string $context
     ) {
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verify your Lumina Beauty email',
+            subject: 'Your Lumina Beauty security code',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            markdown: 'mail.email-verification-otp',
+            markdown: 'mail.login-two-factor-code',
         );
     }
 

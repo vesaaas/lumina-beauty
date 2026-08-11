@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\AccountAuthController;
 use App\Http\Controllers\Auth\EmailVerificationOtpController;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\LoginTwoFactorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\StorefrontController;
 use Illuminate\Support\Facades\Route;
@@ -13,27 +15,47 @@ Route::get('/categories', [StorefrontController::class, 'categories'])->name('ca
 Route::get('/categories/{category}', [StorefrontController::class, 'category'])->name('categories.show');
 Route::get('/brands', [StorefrontController::class, 'brands'])->name('brands.index');
 Route::get('/brands/{brand}', [StorefrontController::class, 'brand'])->name('brands.show');
-Route::get('/favorites', [StorefrontController::class, 'favorites'])->name('favorites.index');
-Route::post('/favorites/{product}', [StorefrontController::class, 'toggleFavorite'])->name('favorites.toggle');
-Route::delete('/favorites/{product}', [StorefrontController::class, 'removeFavorite'])->name('favorites.destroy');
-Route::get('/cart', [StorefrontController::class, 'cart'])->name('cart.index');
-Route::post('/cart/{product}', [StorefrontController::class, 'addToCart'])->name('cart.add');
-Route::patch('/cart/products/{product}', [StorefrontController::class, 'updateGuestCart'])->name('cart.guest.update');
-Route::delete('/cart/products/{product}', [StorefrontController::class, 'removeGuestCart'])->name('cart.guest.destroy');
-Route::patch('/cart/items/{cartItem}', [StorefrontController::class, 'updateCart'])->name('cart.update');
-Route::delete('/cart/items/{cartItem}', [StorefrontController::class, 'removeCart'])->name('cart.destroy');
-Route::get('/checkout', [StorefrontController::class, 'checkout'])->name('checkout.index');
-Route::post('/checkout', [StorefrontController::class, 'placeOrder'])->name('checkout.store');
-Route::get('/orders/{order}/thank-you', [StorefrontController::class, 'thankYou'])->name('orders.thank-you');
+Route::middleware('customer.verified')->group(function (): void {
+    Route::get('/favorites', [StorefrontController::class, 'favorites'])->name('favorites.index');
+    Route::post('/favorites/{product}', [StorefrontController::class, 'toggleFavorite'])->name('favorites.toggle');
+    Route::delete('/favorites/{product}', [StorefrontController::class, 'removeFavorite'])->name('favorites.destroy');
+    Route::get('/cart', [StorefrontController::class, 'cart'])->name('cart.index');
+    Route::post('/cart/{product}', [StorefrontController::class, 'addToCart'])->name('cart.add');
+    Route::patch('/cart/products/{product}', [StorefrontController::class, 'updateGuestCart'])->name('cart.guest.update');
+    Route::delete('/cart/products/{product}', [StorefrontController::class, 'removeGuestCart'])->name('cart.guest.destroy');
+    Route::patch('/cart/items/{cartItem}', [StorefrontController::class, 'updateCart'])->name('cart.update');
+    Route::delete('/cart/items/{cartItem}', [StorefrontController::class, 'removeCart'])->name('cart.destroy');
+    Route::get('/checkout', [StorefrontController::class, 'checkout'])->name('checkout.index');
+    Route::post('/checkout', [StorefrontController::class, 'placeOrder'])->name('checkout.store');
+    Route::get('/orders/{order}/thank-you', [StorefrontController::class, 'thankYou'])->name('orders.thank-you');
+});
 Route::get('/account', fn () => redirect()->route('home')->with('account_modal', true))->name('account.index');
 Route::get('/login', fn () => redirect()->route('home')->with('account_modal', true))->name('login');
 Route::get('/register', fn () => redirect()->route('home')->with('account_modal', true))->name('register');
 Route::post('/login', [AccountAuthController::class, 'login'])
     ->middleware('throttle:5,1')
     ->name('login.submit');
+Route::get('/login/2fa', [LoginTwoFactorController::class, 'show'])
+    ->middleware('throttle:10,1')
+    ->name('login.2fa.show');
+Route::post('/login/2fa', [LoginTwoFactorController::class, 'verify'])
+    ->middleware('throttle:5,1')
+    ->name('login.2fa.verify');
+Route::post('/login/2fa/resend', [LoginTwoFactorController::class, 'resend'])
+    ->middleware('throttle:3,1')
+    ->name('login.2fa.resend');
+Route::post('/login/2fa/cancel', [LoginTwoFactorController::class, 'cancel'])
+    ->middleware('throttle:10,1')
+    ->name('login.2fa.cancel');
 Route::post('/register', [AccountAuthController::class, 'register'])
     ->middleware('throttle:3,10')
     ->name('register.submit');
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])
+    ->middleware('guest')
+    ->name('auth.google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
+    ->middleware('guest')
+    ->name('auth.google.callback');
 
 Route::get('/forgot-password', [AccountAuthController::class, 'showForgotPassword'])
     ->middleware('guest')
@@ -55,6 +77,18 @@ Route::get('/admin/login', [AccountAuthController::class, 'showAdminLogin'])
 Route::post('/admin/login', [AccountAuthController::class, 'adminLogin'])
     ->middleware('throttle:5,1')
     ->name('admin.login.submit');
+Route::get('/admin/login/2fa', [LoginTwoFactorController::class, 'show'])
+    ->middleware('throttle:10,1')
+    ->name('admin.login.2fa.show');
+Route::post('/admin/login/2fa', [LoginTwoFactorController::class, 'verify'])
+    ->middleware('throttle:5,1')
+    ->name('admin.login.2fa.verify');
+Route::post('/admin/login/2fa/resend', [LoginTwoFactorController::class, 'resend'])
+    ->middleware('throttle:3,1')
+    ->name('admin.login.2fa.resend');
+Route::post('/admin/login/2fa/cancel', [LoginTwoFactorController::class, 'cancel'])
+    ->middleware('throttle:10,1')
+    ->name('admin.login.2fa.cancel');
 
 Route::post('/logout', [AccountAuthController::class, 'logout'])
     ->name('logout');
@@ -71,6 +105,15 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:3,1')
         ->name('verification.otp.resend');
 });
+Route::get('/checkout/email/verify', [StorefrontController::class, 'showGuestCheckoutOtp'])
+    ->middleware('throttle:10,1')
+    ->name('checkout.guest.otp.show');
+Route::post('/checkout/email/verify', [StorefrontController::class, 'verifyGuestCheckoutOtp'])
+    ->middleware('throttle:5,1')
+    ->name('checkout.guest.otp.verify');
+Route::post('/checkout/email/verify/resend', [StorefrontController::class, 'resendGuestCheckoutOtp'])
+    ->middleware('throttle:3,1')
+    ->name('checkout.guest.otp.resend');
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/products', [AdminController::class, 'products'])->name('products.index');

@@ -40,9 +40,26 @@ Covers:
 - five incorrect attempts block verification until resend
 - resend replaces the OTP, resets attempts, resets expiry, and sends mail
 - previous OTP fails after resend
-- resend before 60 seconds is rejected without replacing the OTP or sending mail
+- resend before the 15-second cooldown expires is rejected without replacing the OTP or sending mail
+- resend after cooldown is accepted
 - verified users cannot open the OTP page or resend
 - unauthenticated users cannot access OTP endpoints
+
+### `tests/Feature/LoginTwoFactorTest.php`
+
+Covers customer/admin email login 2FA, including no immediate authentication after password entry, queued mail, modal challenge rendering, correct code success, wrong/expired/max-attempt failures, resend cooldown, old code invalidation, used-code deletion, pending state clearing/cancellation, admin/customer separation, admin dashboard access only after 2FA, admin logout invalidation, and the rule that developer-provisioned admins do not need the public customer registration OTP before login 2FA.
+
+### `tests/Feature/AdminUserSeederTest.php`
+
+Covers developer admin provisioning through `AdminUserSeeder`, including creating an admin from configured environment values, updating an existing admin while preserving `is_admin`, and refusing to silently promote a non-admin user that already owns the configured admin email.
+
+### `tests/Feature/GoogleOAuthTest.php`
+
+Covers Socialite redirect/callback behavior with mocked Google users, verified email matching, new customer creation, admin account rejection, unverified Google email rejection, and invalid OAuth state handling.
+
+### `tests/Feature/GuestCheckoutOtpTest.php`
+
+Covers guest checkout OTP before order creation, successful order creation after OTP, wrong/expired code rejection, resend cooldown and old-code invalidation, and cross-guest verification rejection.
 
 ### `tests/Feature/AdminSecurityTest.php`
 
@@ -122,13 +139,17 @@ php -l app/Http/Controllers/StorefrontController.php
 
 ## Mail Fakes
 
-Tests use `Mail::fake()` for order and OTP email assertions and `Notification::fake()` for password reset notifications. OTP tests assert against faked `EmailVerificationOtpMail` instances only and do not depend on real Gmail SMTP.
+Tests use `Mail::fake()` for order and OTP email assertions and `Notification::fake()` for password reset notifications. OTP/2FA tests assert queued faked mailable instances only and do not depend on real Gmail SMTP.
 
 ## Current Coverage Areas
 
 - Authentication registration/password reset basics.
 - Admin password reset isolation.
 - Account email OTP registration, verification, resend, cooldown, expiry, attempts, and auth access behavior.
+- Customer/admin login 2FA.
+- Pending 2FA cancellation, post-logout route protection, password old-input protection, and private no-cache headers.
+- Google OAuth controller behavior with Socialite fakes.
+- Guest checkout OTP before order creation.
 - Checkout/order persistence.
 - Stock rejection.
 - Product deletion protection and order history preservation.
@@ -151,4 +172,4 @@ Any business/security bug fix should receive a regression test where reasonably 
 
 ## Latest Test Count
 
-Full `ddev artisan test` suite: 46 tests, 209 assertions passed.
+Full `ddev artisan test` suite: 96 tests, 558 assertions passed.

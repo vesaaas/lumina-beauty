@@ -33,13 +33,14 @@
           </div>
         @endif
 
-        <form class="admin-login-form" method="POST" action="{{ route('admin.login.submit') }}">
+        <form class="admin-login-form" method="POST" action="{{ route('admin.login.submit') }}" data-secure-form>
           @csrf
           <label>Email <input type="email" name="email" value="{{ old('email') }}" required autofocus /></label>
           <label>Password <input type="password" name="password" required /></label>
-          <button class="admin-button" type="submit">Open Dashboard</button>
+          <button class="admin-button" type="submit" data-submit-label="Checking access...">Open Dashboard</button>
         </form>
       </section>
     </main>
+    <script src="/assets/js/auth.js"></script>
   </body>
 </html>

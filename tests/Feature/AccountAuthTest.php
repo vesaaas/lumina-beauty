@@ -43,7 +43,7 @@ class AccountAuthTest extends TestCase
 
     public function test_weak_registration_password_is_rejected(): void
     {
-        $this->post(route('register.submit'), [
+        $response = $this->from(route('home'))->post(route('register.submit'), [
             'first_name' => 'Vesa',
             'last_name' => 'Beauty',
             'email' => 'weak@example.com',
@@ -52,9 +52,23 @@ class AccountAuthTest extends TestCase
             'password_confirmation' => 'password',
         ])->assertSessionHasErrors('password');
 
+        $response->assertSessionMissing('_old_input.password');
+        $response->assertSessionMissing('_old_input.password_confirmation');
+
         $this->assertDatabaseMissing('users', [
             'email' => 'weak@example.com',
         ]);
+    }
+
+    public function test_login_validation_does_not_flash_password_input(): void
+    {
+        $response = $this->from(route('home'))->post(route('login.submit'), [
+            'email' => 'missing@example.com',
+            'password' => 'Password123!',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $response->assertSessionMissing('_old_input.password');
     }
 
     public function test_valid_strong_registration_password_is_accepted(): void

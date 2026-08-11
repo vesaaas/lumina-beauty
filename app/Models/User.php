@@ -52,4 +52,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(EmailVerificationOtp::class);
     }
+
+    public function loginTwoFactorChallenge(): HasOne
+    {
+        return $this->hasOne(LoginTwoFactorChallenge::class);
+    }
 }

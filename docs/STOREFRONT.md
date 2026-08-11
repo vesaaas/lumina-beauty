@@ -65,7 +65,7 @@ Guest cart state is stored in session key `guest_cart`. Authenticated carts are 
 
 ## Checkout Entry
 
-Route: `GET /checkout` renders `resources/views/checkout/index.blade.php` with cart items and total. Order creation is documented in [COMMERCE_ORDERS.md](COMMERCE_ORDERS.md).
+Route: `GET /checkout` renders `resources/views/checkout/index.blade.php` with cart items and total. Authenticated verified customers can place orders directly. Guests must complete a session-scoped checkout email OTP before the order is created. Order creation is documented in [COMMERCE_ORDERS.md](COMMERCE_ORDERS.md).
 
 ## Account Modal
 
@@ -75,7 +75,7 @@ Route: `GET /checkout` renders `resources/views/checkout/index.blade.php` with c
 
 - Guests: session cart plus session-owned favorite rows.
 - Authenticated users: database cart/favorite rows keyed by user ID.
-- On login/register: `AccountAuthController::attachGuestCommerce()` merges session cart, session-owned cart rows, and session-owned favorites into the user account.
+- On registration, successful customer login 2FA, or successful Google OAuth: `GuestCommerceService` merges session cart, session-owned cart rows, and session-owned favorites into the user account.
 
 ## Content Pages
 
@@ -89,6 +89,5 @@ POST routes validate input, throttle submissions, and send `StorefrontPageMessag
 ## Known UI/Business Limitations
 
 - Checkout has no payment gateway.
-- Guest checkout email verification is not implemented.
-- Thank-you route lacks owner/privacy-token authorization.
+- Guest checkout email verification is implemented with a session-scoped OTP before order creation.
 - Shared `viewData()` loads broad catalog/navigation data for many pages; future optimization may use view composers or page-specific data.

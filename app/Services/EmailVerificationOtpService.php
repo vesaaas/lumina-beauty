@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Mail;
 
 class EmailVerificationOtpService
 {
-    public const RESEND_COOLDOWN_SECONDS = 60;
+    public const RESEND_COOLDOWN_SECONDS = 15;
 
     public function generateAndSend(User $user): void
     {
@@ -30,7 +30,7 @@ class EmailVerificationOtpService
         $user->unsetRelation('emailVerificationOtp');
 
         Mail::to($user->email)
-            ->send(new EmailVerificationOtpMail($code));
+            ->queue(new EmailVerificationOtpMail($code));
     }
 
     public function resend(User $user): void
@@ -44,6 +44,22 @@ class EmailVerificationOtpService
         }
 
         $this->generateAndSend($user);
+    }
+
+    public function ensureActive(User $user): void
+    {
+        $otp = $user->emailVerificationOtp;
+
+        if (! $otp) {
+            $this->generateAndSend($user);
+
+            return;
+        }
+
+        if ($otp->expires_at->isPast()) {
+            $otp->delete();
+            $this->generateAndSend($user);
+        }
     }
 
     public function secondsUntilResendAvailable(User $user): int

@@ -1022,6 +1022,13 @@ body.is-filter-update .product-grid.is-filtered-results .product-card {
   transform: none;
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+  transform: none;
+}
+
 .account-window {
   width: min(680px, 100%);
   margin-inline: auto;
@@ -2095,6 +2102,10 @@ body.is-filter-update .product-grid.is-filtered-results .product-card {
   display: grid;
 }
 
+body.auth-modal-lock {
+  overflow: hidden;
+}
+
 .account-modal {
   position: relative;
   width: min(680px, 100%);
@@ -2107,6 +2118,33 @@ body.is-filter-update .product-grid.is-filtered-results .product-card {
     var(--white);
   box-shadow: 0 34px 100px rgba(33, 25, 29, 0.26);
   padding: clamp(28px, 4.5vw, 48px);
+}
+
+.auth-challenge-page {
+  display: grid;
+  width: min(680px, 100%);
+  place-items: center;
+}
+
+.auth-challenge-modal {
+  display: grid;
+  gap: 20px;
+}
+
+.auth-challenge-modal .modal-heading h1 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  font-size: clamp(2.6rem, 5vw, 3.7rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.auth-challenge-modal .modal-heading strong {
+  color: var(--ink);
+}
+
+.auth-challenge-modal .otp-resend-panel {
+  margin-top: 2px;
 }
 
 .modal-close {

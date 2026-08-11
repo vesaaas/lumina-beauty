@@ -130,11 +130,11 @@
     </footer>
 
     <div class="account-overlay {{ $errors->any() || session('account_modal') ? 'is-open' : '' }}" data-account-modal id="account" aria-hidden="{{ $errors->any() || session('account_modal') ? 'false' : 'true' }}">
-      <div class="account-modal" role="dialog" aria-modal="true" aria-label="Lumina Beauty account">
+      <div class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" data-auth-dialog>
         <button class="modal-close" type="button" data-account-close aria-label="Close account modal"><i data-lucide="x"></i></button>
         <div class="modal-heading">
           <p class="eyebrow">Account access</p>
-          <h2>Lumina Beauty</h2>
+          <h2 id="account-modal-title">Lumina Beauty</h2>
           @auth
             <p>You are signed in as {{ auth()->user()->name }}.</p>
           @else
@@ -159,9 +159,9 @@
             @if (auth()->user()->is_admin)
               <a class="primary-button" href="{{ route('admin.dashboard') }}"><i data-lucide="layout-dashboard"></i> Admin Dashboard</a>
             @endif
-            <form method="POST" action="{{ route('logout') }}">
+            <form method="POST" action="{{ route('logout') }}" data-secure-form>
               @csrf
-              <button class="secondary-button" type="submit"><i data-lucide="log-out"></i> Logout</button>
+              <button class="secondary-button" type="submit" data-submit-label="Signing out..."><i data-lucide="log-out"></i> Logout</button>
             </form>
           </div>
         @else
@@ -170,15 +170,15 @@
             <button type="button" data-account-tab="register">User Register</button>
             <button type="button" data-account-tab="admin">Admin Login</button>
           </div>
-          <form class="modal-form is-active" method="POST" action="{{ route('login.submit') }}" data-account-panel="login">
+          <form class="modal-form is-active" method="POST" action="{{ route('login.submit') }}" data-account-panel="login" data-secure-form>
             @csrf
             <label>Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Password <input type="password" name="password" required /></label>
             <label class="checkbox-label"><input type="checkbox" name="remember" value="1" /> Remember me</label>
             <a class="text-link" href="{{ route('password.request') }}">Forgot Password?</a>
-            <button class="primary-button" type="submit">Login</button>
+            <button class="primary-button" type="submit" data-submit-label="Signing in...">Login</button>
           </form>
-          <form class="modal-form" method="POST" action="{{ route('register.submit') }}" data-account-panel="register">
+          <form class="modal-form" method="POST" action="{{ route('register.submit') }}" data-account-panel="register" data-secure-form>
             @csrf
             <label>First Name <input type="text" name="first_name" value="{{ old('first_name') }}" required /></label>
             <label>Last Name <input type="text" name="last_name" value="{{ old('last_name') }}" required /></label>
@@ -198,19 +198,20 @@
                 minlength="8"
               />
             </label>
-            <button class="primary-button" type="submit">Create Account</button>
+            <button class="primary-button" type="submit" data-submit-label="Creating account...">Create Account</button>
           </form>
-          <form class="modal-form" method="POST" action="{{ route('admin.login.submit') }}" data-account-panel="admin">
+          <form class="modal-form" method="POST" action="{{ route('admin.login.submit') }}" data-account-panel="admin" data-secure-form>
             @csrf
             <label>Admin Email <input type="email" name="email" value="{{ old('email') }}" required /></label>
             <label>Password <input type="password" name="password" required /></label>
-            <button class="primary-button" type="submit">Open Dashboard</button>
+            <button class="primary-button" type="submit" data-submit-label="Checking access...">Open Dashboard</button>
           </form>
         @endauth
       </div>
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="/assets/js/auth.js"></script>
     <script src="/assets/js/storefront.js"></script>
   </body>
 </html>

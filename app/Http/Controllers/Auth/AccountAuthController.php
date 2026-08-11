@@ -3,14 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\CartItem;
-use App\Models\Favorite;
+use App\Models\LoginTwoFactorChallenge;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\EmailVerificationOtpService;
+use App\Services\GuestCommerceService;
+use App\Services\LoginTwoFactorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -21,7 +23,8 @@ class AccountAuthController extends Controller
 {
     public function register(
         Request $request,
-        EmailVerificationOtpService $otpService
+        EmailVerificationOtpService $otpService,
+        GuestCommerceService $guestCommerce
     ): RedirectResponse {
         $attributes = $request->validate([
             'first_name' => ['required', 'string', 'max:120'],
@@ -53,7 +56,7 @@ class AccountAuthController extends Controller
 
         Auth::login($user);
 
-        $this->attachGuestCommerce($request, $user);
+        $guestCommerce->attachToUser($request, $user);
 
         $request->session()->regenerate();
 
@@ -142,24 +145,58 @@ class AccountAuthController extends Controller
                 ->onlyInput('email');
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(
+        Request $request,
+        EmailVerificationOtpService $emailVerificationOtpService,
+        LoginTwoFactorService $twoFactorService
+    ): RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        $user = User::where('email', $credentials['email'])->first();
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => 'The email or password is incorrect.',
             ])->redirectTo(url()->previous().'#account');
         }
 
-        $this->attachGuestCommerce($request, Auth::user());
+        if ($user->is_admin) {
+            throw ValidationException::withMessages([
+                'email' => 'Please use the admin login page for admin access.',
+            ])->redirectTo(url()->previous().'#account');
+        }
+
+        if (! $user->email_verified_at) {
+            Auth::login($user);
+            $request->session()->regenerate();
+            $emailVerificationOtpService->ensureActive($user);
+
+            return redirect()
+                ->route('verification.otp.show')
+            ->with('status', 'Please verify your email before signing in fully.');
+        }
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('home'));
+        $request->session()->put('login_2fa', [
+            'user_id' => $user->id,
+            'context' => LoginTwoFactorChallenge::CONTEXT_CUSTOMER,
+            'remember' => $request->boolean('remember'),
+            'intended' => redirect()->intended(route('home'))->getTargetUrl(),
+        ]);
+
+        $twoFactorService->generateAndSend(
+            $user,
+            LoginTwoFactorChallenge::CONTEXT_CUSTOMER
+        );
+
+        return redirect()
+            ->route('login.2fa.show')
+            ->with('status', 'We sent a 6-digit security code to your email.');
     }
 
     public function showAdminLogin(): View|RedirectResponse
@@ -171,16 +208,21 @@ class AccountAuthController extends Controller
         return view('admin.login');
     }
 
-    public function adminLogin(Request $request): RedirectResponse
+    public function adminLogin(
+        Request $request,
+        LoginTwoFactorService $twoFactorService
+    ): RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        if (
-            ! Auth::attempt($credentials, $request->boolean('remember'))
-            || ! Auth::user()->is_admin
+        $user = Auth::getProvider()->retrieveByCredentials($credentials);
+
+        if (! ($user instanceof User)
+            || ! Auth::getProvider()->validateCredentials($user, $credentials)
+            || ! $user->is_admin
         ) {
             AuditLogService::log(
                 $request,
@@ -190,25 +232,46 @@ class AccountAuthController extends Controller
                 ['email' => $credentials['email']],
             );
 
-            Auth::logout();
-
             throw ValidationException::withMessages([
-                'email' => 'Admin access is available only for developer-created admin accounts.',
+                'email' => 'The provided admin credentials are invalid.',
             ])->redirectTo(route('admin.login'));
         }
 
-        $this->attachGuestCommerce($request, Auth::user());
-
         $request->session()->regenerate();
 
-        AuditLogService::log($request, 'admin.login');
+        $request->session()->put('login_2fa', [
+            'user_id' => $user->id,
+            'context' => LoginTwoFactorChallenge::CONTEXT_ADMIN,
+            'remember' => $request->boolean('remember'),
+            'intended' => route('admin.dashboard'),
+        ]);
 
-        return redirect()->route('admin.dashboard');
+        $twoFactorService->generateAndSend(
+            $user,
+            LoginTwoFactorChallenge::CONTEXT_ADMIN
+        );
+
+        AuditLogService::log(
+            $request,
+            'admin.login_2fa_challenge_initiated',
+            $user,
+            [],
+            ['email' => $user->email]
+        );
+
+        return redirect()
+            ->route('admin.login.2fa.show')
+            ->with('status', 'We sent a 6-digit admin security code to your email.');
     }
 
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
+
+        $request->session()->forget([
+            'login_2fa',
+            'guest_checkout.pending',
+        ]);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -216,85 +279,4 @@ class AccountAuthController extends Controller
         return redirect()->route('home');
     }
 
-    private function attachGuestCommerce(Request $request, User $user): void
-    {
-        $sessionId = $request->session()->getId();
-
-        $sessionCart = collect($request->session()->get('guest_cart', []))
-            ->mapWithKeys(
-                fn ($quantity, $productId) => [
-                    (int) $productId => max(1, min(99, (int) $quantity)),
-                ]
-            );
-
-        $sessionCart->each(
-            function (int $quantity, int $productId) use ($user): void {
-                $existing = CartItem::where('user_id', $user->id)
-                    ->where('product_id', $productId)
-                    ->first();
-
-                if ($existing) {
-                    $existing->update([
-                        'quantity' => min(
-                            99,
-                            $existing->quantity + $quantity
-                        ),
-                    ]);
-
-                    return;
-                }
-
-                CartItem::create([
-                    'user_id' => $user->id,
-                    'product_id' => $productId,
-                    'quantity' => $quantity,
-                ]);
-            }
-        );
-
-        $request->session()->forget('guest_cart');
-
-        CartItem::where('session_id', $sessionId)
-            ->get()
-            ->each(function (CartItem $guestItem) use ($user): void {
-                $existing = CartItem::where('user_id', $user->id)
-                    ->where('product_id', $guestItem->product_id)
-                    ->first();
-
-                if ($existing) {
-                    $existing->increment(
-                        'quantity',
-                        $guestItem->quantity
-                    );
-
-                    $guestItem->delete();
-
-                    return;
-                }
-
-                $guestItem->update([
-                    'user_id' => $user->id,
-                    'session_id' => null,
-                ]);
-            });
-
-        Favorite::where('session_id', $sessionId)
-            ->get()
-            ->each(function (Favorite $guestFavorite) use ($user): void {
-                $existing = Favorite::where('user_id', $user->id)
-                    ->where('product_id', $guestFavorite->product_id)
-                    ->first();
-
-                if ($existing) {
-                    $guestFavorite->delete();
-
-                    return;
-                }
-
-                $guestFavorite->update([
-                    'user_id' => $user->id,
-                    'session_id' => null,
-                ]);
-            });
-    }
 }

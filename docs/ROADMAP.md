@@ -68,7 +68,7 @@ Completion criteria:
 
 ## Phase 4: Google Authentication
 
-Status: PLANNED
+Status: IMPLEMENTED / NEEDS MANUAL CREDENTIALS
 
 Scope:
 
@@ -79,14 +79,15 @@ Scope:
 
 Completion criteria:
 
-- Socialite dependency added and documented
-- OAuth routes/controllers implemented
-- no OAuth secrets committed
-- auth/security docs and tests updated
+- Socialite dependency added and documented: completed
+- OAuth routes/controllers implemented: completed
+- no OAuth secrets committed: completed
+- auth/security docs and tests updated: completed
+- Google Cloud client ID/secret/redirect URI configured manually: pending developer setup
 
 ## Phase 5: Login 2FA
 
-Status: PLANNED
+Status: COMPLETED
 
 Scope:
 
@@ -96,13 +97,13 @@ Scope:
 
 Completion criteria:
 
-- ADR or security design documented
-- server-side enforcement implemented
-- regression tests added
+- security design documented: completed
+- server-side enforcement implemented: completed
+- regression tests added: completed
 
 ## Phase 6: Guest Checkout Email Verification
 
-Status: PLANNED
+Status: COMPLETED
 
 Scope:
 
@@ -112,9 +113,9 @@ Scope:
 
 Completion criteria:
 
-- guest verification flow implemented
-- order privacy rules reviewed
-- tests for guest/authenticated cases
+- guest verification flow implemented: completed
+- order privacy rules reviewed: completed
+- tests for guest/authenticated cases: completed
 
 ## Phase 7: Authorization/Policies Final Review
 

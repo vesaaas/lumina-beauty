@@ -5,7 +5,8 @@
 | Technology | Status | Use |
 | --- | --- | --- |
 | PHP `^8.3` | Active | Runtime requirement from `composer.json`; DDEV uses PHP `8.4`. |
-| Laravel Framework `v13.8.0` | Active | Main web framework, routing, MVC, Eloquent, validation, auth, mail, testing helpers. |
+| Laravel Framework `v13.25.0` | Active | Main web framework, routing, MVC, Eloquent, validation, auth, mail, testing helpers. |
+| Laravel Socialite `^5.29` | Active | Google OAuth customer authentication integration. |
 | Laravel Tinker `^3.0` | Active dev dependency | Local interactive debugging/tooling. |
 | Composer 2 | Active | PHP dependency management; DDEV config sets Composer version 2. |
 
@@ -53,4 +54,4 @@
 
 ## Packages Not Currently Used For Planned Features
 
-No current dependency proves implementation of Gmail SMTP, Google OAuth/Socialite, OTP packages, 2FA packages, chatbot, FastAPI, OpenAI API, Vue, React, or payment gateway integration.
+No current dependency proves implementation of chatbot, FastAPI, OpenAI API, Vue, React, or payment gateway integration. OTP and login 2FA are implemented with first-party Laravel mail, hashing, validation, sessions, and Eloquent rather than a third-party OTP package.

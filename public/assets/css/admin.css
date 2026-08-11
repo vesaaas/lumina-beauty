@@ -43,6 +43,12 @@ body.admin-modal-lock {
   width: min(100%, 520px);
 }
 
+.admin-auth-page {
+  display: grid;
+  width: min(100%, 520px);
+  gap: 18px;
+}
+
 .admin-login-panel {
   display: grid;
   gap: 26px;
@@ -101,6 +107,37 @@ body.admin-modal-lock {
 .admin-login-form input:focus {
   border-color: rgba(185, 63, 104, .45);
   box-shadow: 0 0 0 4px rgba(185, 63, 104, .1);
+}
+
+.auth-challenge-card {
+  position: relative;
+}
+
+.auth-challenge-card .admin-login-heading {
+  padding-right: 36px;
+}
+
+.auth-challenge-card .admin-login-heading strong {
+  color: var(--admin-ink);
+}
+
+.auth-challenge-card .otp-resend-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.auth-challenge-card .otp-resend-panel p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-weight: 800;
+}
+
+.admin-button:disabled {
+  cursor: wait;
+  opacity: 0.66;
+  transform: none;
 }
 
 a { color: inherit; text-decoration: none; }

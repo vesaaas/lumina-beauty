@@ -42,6 +42,34 @@ Local database is MariaDB through DDEV. Tests use SQLite in-memory and do not re
 
 DDEV provides Mailpit for development mail inspection. Gmail SMTP is not configured by this documentation.
 
+If active local mail configuration points to `127.0.0.1:1025`, Laravel is sending to DDEV Mailpit. Queue worker `DONE` output then means the message was accepted by local Mailpit, not delivered to an external inbox.
+
+### Queues
+
+OTP and login 2FA emails are queued. With the database queue driver, run a queue worker in development when testing real mail delivery:
+
+```bash
+ddev artisan queue:work
+```
+
+Production must run a supervised Laravel queue worker, for example:
+
+```bash
+php artisan queue:work
+```
+
+If the worker is stopped, OTP/2FA challenge rows are still created and verification rules remain enforced, but email jobs wait in the queue until processing resumes.
+
+Queue workers keep their booted configuration. After changing mail or queue environment values, clear Laravel cache and restart workers before testing delivery:
+
+```bash
+ddev artisan optimize:clear
+ddev artisan queue:restart
+ddev artisan queue:work
+```
+
+Production should use the same lifecycle through the process supervisor, for example by restarting the supervised Laravel queue worker after deployment or mail configuration changes.
+
 ### Storage
 
 Product image uploads use Laravel's `public` disk in admin product image handling. Public storage link behavior should be verified with Laravel's normal `storage:link` workflow when moving environments.
@@ -49,6 +77,8 @@ Product image uploads use Laravel's `public` disk in admin product image handlin
 ### Environment
 
 Do not commit `.env`. Admin seed credentials and mail credentials belong in environment variables only.
+
+For real Gmail SMTP delivery, configure mail environment values manually outside source control. Required values include the mailer, SMTP host, port, scheme/encryption, username, app password, and a compatible from address/name. Never commit or document the real credential values.
 
 Useful commands:
 

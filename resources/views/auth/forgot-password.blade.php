@@ -25,14 +25,15 @@
           </div>
         @endif
 
-        <form class="modal-form is-active" method="POST" action="{{ route('password.email') }}">
+        <form class="modal-form is-active" method="POST" action="{{ route('password.email') }}" data-secure-form>
           @csrf
           <label>Email <input type="email" name="email" value="{{ old('email') }}" required autofocus /></label>
-          <button class="primary-button" type="submit">Send Reset Link</button>
+          <button class="primary-button" type="submit" data-submit-label="Sending...">Send Reset Link</button>
         </form>
 
         <a class="text-link" href="{{ route('home') }}#account">Back to login</a>
       </section>
     </main>
+    <script src="/assets/js/auth.js"></script>
   </body>
 </html>

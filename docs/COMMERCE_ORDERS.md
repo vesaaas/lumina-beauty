@@ -37,7 +37,7 @@ Routes:
 - `GET /checkout`
 - `POST /checkout`
 
-`StorefrontController::placeOrder()` validates customer and shipping fields, rejects an empty cart, creates an order, creates order items, decrements stock, clears the cart, and redirects to the thank-you page.
+`StorefrontController::placeOrder()` validates customer and shipping fields and rejects an empty cart. Authenticated verified customers create an order immediately. Guests first receive a six-digit checkout email OTP; the order is not created until the OTP succeeds.
 
 ## Transaction Boundary
 
@@ -50,7 +50,7 @@ Order creation is wrapped in `DB::transaction()`. Inside the transaction:
 - stock is decremented
 - cart is cleared
 
-The pending order email is sent after the transaction commits.
+The pending order email is sent after the transaction commits. Guest checkout OTP happens before this transaction; pending guest checkout attributes are stored in the server-side session until verification succeeds.
 
 ## Stock Checks
 

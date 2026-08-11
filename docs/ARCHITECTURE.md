@@ -30,7 +30,7 @@ flowchart TD
 All browser routes are in `routes/web.php`.
 
 - Public storefront routes serve home, products, categories, brands, favorites, cart, checkout, content pages, sales, and hot trends.
-- Custom auth routes handle account modal redirects, login, register, logout, password reset, admin login, and email OTP verification.
+- Custom auth routes handle account modal redirects, login, login 2FA, register, logout, password reset, admin login, admin login 2FA, Google OAuth, and email OTP verification.
 - Admin routes are grouped under `/admin`, named `admin.*`, and protected by `auth` plus `admin` middleware.
 
 ## Middleware
@@ -43,15 +43,21 @@ All browser routes are in `routes/web.php`.
 
 - `StorefrontController` handles catalog browsing, filters, favorites, cart, checkout, order thank-you page, content pages, and storefront email messages.
 - `AdminController` handles admin dashboard, product/category/brand management, orders, users, reports, discounts, settings, audit logging calls, image upload, and order status mail.
-- `AccountAuthController` handles custom customer/admin authentication, registration, password reset, logout, and guest commerce merge.
-- `EmailVerificationOtpController` exists in the working tree for the in-progress email OTP flow.
+- `AccountAuthController` handles custom customer/admin password entry, registration, password reset, logout, and starts email verification/login 2FA flows.
+- `EmailVerificationOtpController` handles account email verification OTP screens, verify, and resend.
+- `LoginTwoFactorController` handles customer/admin login 2FA challenge screens, verify, and resend.
+- `GoogleAuthController` handles customer-only Google OAuth redirect/callback.
 
-Business logic still lives mainly in controllers. Do not document the app as service-oriented beyond the existing `AuditLogService` and `EmailVerificationOtpService`.
+Business logic still lives mainly in controllers. Auth and shared-view concerns use focused services where security or reuse requires them.
 
 ## Services
 
 - `AuditLogService` writes audit events to `audit_logs`.
 - `EmailVerificationOtpService` generates a random six-digit code, stores only a hash, tracks expiry/attempt metadata, and sends `EmailVerificationOtpMail`.
+- `LoginTwoFactorService` manages hashed email login 2FA challenges for customer/admin password login.
+- `GuestCheckoutOtpService` manages hashed guest checkout email OTP challenges before order creation.
+- `GuestCommerceService` merges guest cart/favorite state into a customer account only after registration or successful customer login 2FA/OAuth.
+- `StorefrontViewData` provides common storefront layout data through a view composer and storefront controller helper.
 
 ## Models And Eloquent
 
@@ -75,7 +81,7 @@ DDEV uses MariaDB 10.11. Tests use in-memory SQLite from `phpunit.xml`. Migratio
 
 ## Mail
 
-Mailables handle order status, storefront page messages, and in-progress email OTP verification. Current development mail can flow through Laravel mail drivers such as Mailpit-compatible SMTP, log, or array depending on environment. Gmail SMTP is not configured here.
+Mailables handle order status, storefront page messages, account email OTP verification, login 2FA codes, and guest checkout OTP codes. Current development mail can flow through Laravel mail drivers such as Mailpit-compatible SMTP, log, array, or the manually configured Gmail SMTP environment.
 
 See [EMAIL_INTEGRATIONS.md](EMAIL_INTEGRATIONS.md).
 
@@ -95,7 +101,7 @@ See [ADMIN_PANEL.md](ADMIN_PANEL.md) and [adr/002-single-administrator-model.md]
 
 ## Checkout Transaction Boundary
 
-`StorefrontController::placeOrder()` wraps order creation, item creation, stock checks, product row locks, stock decrement, and cart cleanup in a database transaction. The pending order email is sent after the transaction completes.
+`StorefrontController::placeOrder()` wraps order creation, item creation, stock checks, product row locks, stock decrement, and cart cleanup in a database transaction. Authenticated verified customers proceed directly. Guests first complete a session-scoped checkout email OTP challenge; the pending order email is sent after the transaction completes.
 
 ## Potential Future Refactoring
 

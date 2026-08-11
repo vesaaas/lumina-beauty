@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Mail\GuestCheckoutOtpMail;
 use App\Mail\StorefrontPageMessage;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\GuestCheckoutOtp;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
@@ -38,6 +40,44 @@ class StorefrontSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_logout_invalidates_customer_session_and_protected_routes_redirect(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->order(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)
+            ->get(route('orders.thank-you', $order))
+            ->assertOk();
+
+        $this->assertStringContainsString(
+            'no-store',
+            $response->headers->get('Cache-Control')
+        );
+
+        $this->post(route('logout'))
+            ->assertRedirect(route('home'));
+
+        $this->assertGuest();
+
+        $this->get(route('orders.thank-you', $order))
+            ->assertForbidden();
+    }
+
+    public function test_authenticated_storefront_response_receives_private_no_cache_headers(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('cart.index'));
+
+        $response->assertOk();
+        $cacheControl = $response->headers->get('Cache-Control');
+
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+        $this->assertStringContainsString('private', $cacheControl);
+    }
+
     public function test_legitimate_guest_can_view_newly_created_order_confirmation(): void
     {
         Mail::fake();
@@ -46,6 +86,16 @@ class StorefrontSecurityTest extends TestCase
         $this->withSession([
             'guest_cart' => [$product->id => 1],
         ])->post(route('checkout.store'), $this->checkoutPayload())
+            ->assertRedirect(route('checkout.guest.otp.show'));
+
+        $code = Mail::queued(GuestCheckoutOtpMail::class)->first()->code;
+
+        $this->withCookie(
+            config('session.cookie'),
+            GuestCheckoutOtp::firstOrFail()->session_id
+        );
+
+        $this->post(route('checkout.guest.otp.verify'), ['code' => $code])
             ->assertRedirect();
 
         $order = Order::firstOrFail();

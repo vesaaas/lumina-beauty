@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Mail\StorefrontPageMessage;
 use App\Mail\OrderStatusNotification;
+use App\Services\GuestCheckoutOtpService;
 use App\Services\StorefrontViewData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -237,7 +238,10 @@ class StorefrontController extends Controller
         ]));
     }
 
-    public function placeOrder(Request $request): RedirectResponse
+    public function placeOrder(
+        Request $request,
+        GuestCheckoutOtpService $guestCheckoutOtpService
+    ): RedirectResponse
     {
         $cartItems = $this->cartItems($request);
         abort_if($cartItems->isEmpty(), 422, 'Your cart is empty.');
@@ -250,6 +254,97 @@ class StorefrontController extends Controller
             'shipping_city' => ['required', 'string', 'max:120'],
             'shipping_country' => ['required', 'string', 'max:120'],
         ]);
+
+        if (! $request->user()) {
+            $otp = $guestCheckoutOtpService->generateAndSend(
+                $request->session()->getId(),
+                $attributes['customer_email']
+            );
+            $request->session()->put('guest_checkout.pending', [
+                'attributes' => $attributes,
+                'otp_id' => $otp->id,
+            ]);
+
+            return redirect()
+                ->route('checkout.guest.otp.show')
+                ->with('status', 'We sent a 6-digit checkout code to your email.');
+        }
+
+        return $this->createOrderFromCheckout($request, $attributes);
+    }
+
+    public function showGuestCheckoutOtp(
+        Request $request,
+        GuestCheckoutOtpService $guestCheckoutOtpService
+    ) {
+        $pending = $request->session()->get('guest_checkout.pending');
+
+        if ($request->user() || ! is_array($pending) || ! isset($pending['attributes'], $pending['otp_id'])) {
+            return redirect()->route('checkout.index');
+        }
+
+        return view('checkout.guest-otp', $this->viewData([
+            'email' => $this->maskEmail($pending['attributes']['customer_email']),
+            'resendCooldownSeconds' => $guestCheckoutOtpService
+                ->secondsUntilResendAvailable(
+                    (int) $pending['otp_id'],
+                    $request->session()->getId()
+                ),
+        ]));
+    }
+
+    public function verifyGuestCheckoutOtp(
+        Request $request,
+        GuestCheckoutOtpService $guestCheckoutOtpService
+    ): RedirectResponse {
+        $attributes = $request->validate([
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        $pending = $request->session()->get('guest_checkout.pending');
+
+        if ($request->user() || ! is_array($pending) || ! isset($pending['attributes'], $pending['otp_id'])) {
+            return redirect()->route('checkout.index');
+        }
+
+        $guestCheckoutOtpService->verify(
+            (int) $pending['otp_id'],
+            $request->session()->getId(),
+            $attributes['code']
+        );
+
+        $request->session()->forget('guest_checkout.pending');
+
+        return $this->createOrderFromCheckout($request, $pending['attributes']);
+    }
+
+    public function resendGuestCheckoutOtp(
+        Request $request,
+        GuestCheckoutOtpService $guestCheckoutOtpService
+    ): RedirectResponse {
+        $pending = $request->session()->get('guest_checkout.pending');
+
+        if ($request->user() || ! is_array($pending) || ! isset($pending['otp_id'])) {
+            return redirect()->route('checkout.index');
+        }
+
+        $guestCheckoutOtpService->resend(
+            (int) $pending['otp_id'],
+            $request->session()->getId()
+        );
+
+        return back()->with(
+            'status',
+            'A new checkout code was sent. Your previous code is no longer valid.'
+        );
+    }
+
+    private function createOrderFromCheckout(
+        Request $request,
+        array $attributes
+    ): RedirectResponse {
+        $cartItems = $this->cartItems($request);
+        abort_if($cartItems->isEmpty(), 422, 'Your cart is empty.');
 
         $order = DB::transaction(function () use ($request, $cartItems, $attributes): Order {
             $cartItems = $cartItems->map(function ($item) {
@@ -603,5 +698,13 @@ class StorefrontController extends Controller
         } while (Order::where('order_number', $orderNumber)->exists());
 
         return $orderNumber;
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = explode('@', $email, 2);
+        $visible = mb_substr($local, 0, 2);
+
+        return $visible.str_repeat('*', max(3, mb_strlen($local) - 2)).'@'.$domain;
     }
 }
