@@ -2,6 +2,8 @@
 
 Generated from source inspection on 2026-07-25.
 
+> Historical reference only. This document predates the 2026-08-09 repository-native documentation system and later pre-Gmail security hardening. Use current source code, [CURRENT_STATE.md](CURRENT_STATE.md), and [INDEX.md](INDEX.md) as the implementation/status source of truth.
+
 ## Application Overview
 
 Lumina Beauty is a Laravel 13 e-commerce application for cosmetic and beauty products. It provides a public storefront, product catalog browsing, product filtering, product detail pages, favorites/wishlist, guest and authenticated carts, checkout, order persistence, order status email notifications, contact/about page email messages, customer registration/login/password reset, and a protected admin dashboard for catalog, order, customer, discount, and reporting views.
