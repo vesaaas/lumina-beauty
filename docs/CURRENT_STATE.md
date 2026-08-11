@@ -2,7 +2,7 @@
 
 Update this file whenever a meaningful development milestone is completed.
 
-Last reviewed: 2026-08-09  
+Last reviewed: 2026-08-11  
 Branch reviewed: `feature/security-authentication`  
 Status basis: current working tree inspection; the branch contains uncommitted application and documentation changes.
 
@@ -35,7 +35,7 @@ Status basis: current working tree inspection; the branch contains uncommitted a
 - IMPLEMENTED: Product soft deletion protection and no registered admin product delete route.
 - IMPLEMENTED: Audit log table/service for selected admin/security actions.
 - IMPLEMENTED: Pre-Gmail security/admin UX hardening: reusable admin password modal, direct `current_password` validation for sensitive admin actions, one-way order status transitions, audit sanitization, session config hardening, and contact/about honeypot timing checks.
-- IN PROGRESS: Email OTP verification exists in the working tree with hashed six-digit code storage, expiry, attempt counter, route, controller, mail, view, and registration redirect. It is not a completed roadmap milestone because resend/cooldown UX and production email delivery are not complete.
+- IMPLEMENTED: Account email OTP verification uses hashed six-digit code storage, 10-minute expiry, a five-attempt limit, registration redirect, Gmail-backed mailable delivery in the manually configured local environment, resend replacement, server-side resend cooldown, route throttling, and verification page resend UX.
 
 ## Implemented Security Controls
 
@@ -55,12 +55,13 @@ Status basis: current working tree inspection; the branch contains uncommitted a
 - IMPLEMENTED: Session defaults favor encrypted, HttpOnly, SameSite Lax cookies with secure-cookie auto behavior controlled by environment.
 - IMPLEMENTED: Admin URL responses send no-store/no-cache headers so browser history restores must revalidate after logout.
 - IMPLEMENTED: Contact/about forms have rate limiting plus local honeypot/timing spam protection.
+- IMPLEMENTED: Account email OTP verification redirects already verified users home, blocks expired or over-attempt OTPs, deletes successful/expired OTPs, replaces old OTPs on allowed resend, and rejects early resend without replacing the existing OTP or sending email.
 
 ## Tests
 
-- IMPLEMENTED: Feature tests cover product filtering, auth/password reset behavior, registration password policy, registration phone/OTP row creation, checkout persistence, stock rejection, product delete protection, admin deletion/password checks, order status transitions, order status mail/audit behavior, admin post-logout redirect/no-cache behavior, order confirmation privacy, audit secret sanitization, and contact spam protection.
+- IMPLEMENTED: Feature tests cover product filtering, auth/password reset behavior, registration password policy, registration phone/OTP row creation, email OTP verification/resend/cooldown behavior, checkout persistence, stock rejection, product delete protection, admin deletion/password checks, order status transitions, order status mail/audit behavior, admin post-logout redirect/no-cache behavior, order confirmation privacy, audit secret sanitization, and contact spam protection.
 - IMPLEMENTED: Default feature/unit example tests remain.
-- VERIFIED: Full `ddev artisan test` suite passed: 35 tests, 148 assertions.
+- VERIFIED: Full `ddev artisan test` suite passed: 46 tests, 209 assertions.
 
 ## Active Development Phase
 
@@ -68,12 +69,11 @@ IMPLEMENTED: Pre-Gmail security-first modernization is complete for the currentl
 
 ## Immediate Next Task
 
-Developer manually configures Gmail SMTP in environment variables only.
+Continue with the next planned security/authentication milestone after account email OTP verification is accepted.
 
 ## Known Incomplete Work
 
-- PLANNED: Gmail SMTP/manual production email configuration.
-- IN PROGRESS: Email OTP verification, as described above.
+- IMPLEMENTED LOCALLY: Gmail SMTP has been manually configured and tested by the developer through environment variables only; no credentials are stored in repository documentation.
 - PLANNED: Google OAuth.
 - PLANNED: Login 2FA.
 - PLANNED: Guest checkout email verification.

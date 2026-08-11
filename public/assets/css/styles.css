@@ -1003,6 +1003,25 @@ body.is-filter-update .product-grid.is-filtered-results .product-card {
   resize: vertical;
 }
 
+.otp-resend-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.otp-resend-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.otp-resend-panel .secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
 .account-window {
   width: min(680px, 100%);
   margin-inline: auto;

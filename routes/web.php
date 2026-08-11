@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AccountAuthController;
+use App\Http\Controllers\Auth\EmailVerificationOtpController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\StorefrontController;
 use Illuminate\Support\Facades\Route;
@@ -57,6 +58,19 @@ Route::post('/admin/login', [AccountAuthController::class, 'adminLogin'])
 
 Route::post('/logout', [AccountAuthController::class, 'logout'])
     ->name('logout');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/email/verify', [EmailVerificationOtpController::class, 'show'])
+        ->name('verification.otp.show');
+
+    Route::post('/email/verify', [EmailVerificationOtpController::class, 'verify'])
+        ->middleware('throttle:5,1')
+        ->name('verification.otp.verify');
+
+    Route::post('/email/verify/resend', [EmailVerificationOtpController::class, 'resend'])
+        ->middleware('throttle:3,1')
+        ->name('verification.otp.resend');
+});
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/products', [AdminController::class, 'products'])->name('products.index');
@@ -67,14 +81,18 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/categories', [AdminController::class, 'categories'])->name('categories.index');
     Route::post('/categories', [AdminController::class, 'storeCategory'])->name('categories.store');
     Route::put('/categories/{category}', [AdminController::class, 'updateCategory'])->name('categories.update');
-    Route::delete('/categories/{category}', [AdminController::class, 'deleteCategory'])->name('categories.destroy');
+    Route::delete('/categories/{category}', [AdminController::class, 'deleteCategory'])
+        ->name('categories.destroy');
     Route::get('/brands', [AdminController::class, 'brands'])->name('brands.index');
     Route::post('/brands', [AdminController::class, 'storeBrand'])->name('brands.store');
     Route::put('/brands/{brand}', [AdminController::class, 'updateBrand'])->name('brands.update');
-    Route::delete('/brands/{brand}', [AdminController::class, 'deleteBrand'])->name('brands.destroy');
+    Route::delete('/brands/{brand}', [AdminController::class, 'deleteBrand'])
+        ->name('brands.destroy');
     Route::get('/orders', [AdminController::class, 'orders'])->name('orders.index');
     Route::get('/orders/{order}', [AdminController::class, 'order'])->name('orders.show');
-    Route::patch('/orders/{order}', [AdminController::class, 'updateOrder'])->name('orders.update');
+
+    Route::patch('/orders/{order}', [AdminController::class, 'updateOrder'])
+        ->name('orders.update');
     Route::get('/users', [AdminController::class, 'users'])->name('users.index');
     Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
     Route::get('/discounts', [AdminController::class, 'discounts'])->name('discounts');

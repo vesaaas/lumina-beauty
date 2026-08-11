@@ -55,6 +55,7 @@ Configured in routes:
 - Password reset request/update: `throttle:3,10`
 - Admin login: `throttle:5,1`
 - Email OTP verify: `throttle:5,1`
+- Email OTP resend: `throttle:3,1`, plus a server-side 60-second cooldown based on `email_verification_otps.last_sent_at`
 - Contact/about submission: `throttle:3,10`
 
 ### Session Lifecycle
@@ -113,7 +114,7 @@ The thank-you page enforces authorization:
 
 ## Email OTP Status
 
-IN PROGRESS: The working tree contains an email OTP flow with:
+IMPLEMENTED: Account email verification uses an OTP flow with:
 
 - `email_verification_otps` table
 - hashed `code_hash`
@@ -121,26 +122,27 @@ IN PROGRESS: The working tree contains an email OTP flow with:
 - attempt counter with a five-attempt limit
 - registration redirect to OTP verification
 - `EmailVerificationOtpMail`
+- dedicated resend endpoint: `POST /email/verify/resend`, route name `verification.otp.resend`
+- resend replaces the existing OTP, resets attempts to zero, resets expiry to 10 minutes, and updates `last_sent_at`
+- resend is blocked until 60 seconds after `last_sent_at`; early resend does not generate a code, does not send email, and leaves the current OTP valid
+- already verified users are redirected home from the OTP page and resend endpoint
+- successful verification sets `email_verified_at`, deletes the OTP row, and redirects home
+- expired OTPs cannot verify and are deleted
+- Gmail SMTP has been manually configured and tested locally by the developer through environment variables only; no credentials are documented
 
-Not complete as a roadmap milestone:
-
-- no completed resend route/cooldown UX
-- no Gmail SMTP
-- no production delivery configuration
-- no broader policy requiring verified email for all sensitive flows
+The storefront is not globally protected with Laravel's `verified` middleware yet. Broader restrictions on unverified customers remain a separate policy decision.
 
 ## Known Gaps
 
 - No Google OAuth.
 - No login 2FA.
 - No guest checkout email verification.
+- No global storefront/email-verified access policy.
 - No production security hardening/HTTPS/HSTS documentation as completed.
 - CSP is Report-Only, not enforced.
 
 ## Planned Security Work
 
-- Gmail-backed real email delivery configured manually by the developer.
-- Complete six-digit email verification OTP milestone with hashed storage, expiry, attempt limits, resend cooldown, rate limiting, and verified timestamp semantics.
 - Google OAuth login through Laravel Socialite.
 - Login 2FA.
 - Guest checkout email verification.

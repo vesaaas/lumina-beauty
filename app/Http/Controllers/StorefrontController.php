@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Mail\StorefrontPageMessage;
 use App\Mail\OrderStatusNotification;
+use App\Services\StorefrontViewData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,11 @@ use Illuminate\Validation\ValidationException;
 
 class StorefrontController extends Controller
 {
+    public function __construct(
+        private readonly StorefrontViewData $storefrontViewData
+    ) {
+    }
+
     public function home()
     {
         return view('home', $this->viewData());
@@ -383,30 +389,10 @@ class StorefrontController extends Controller
 
     private function viewData(array $extra = []): array
     {
-        $products = Product::with(['brand', 'category', 'images'])
-            ->where('is_active', true)
-            ->latest()
-            ->get();
-        $storefrontProducts = $products->map->toStorefrontArray()->all();
-
-        return array_merge([
-            'products' => $storefrontProducts,
-            'newArrivals' => $products->where('is_new_arrival', true)->take(8)->map->toStorefrontArray()->all(),
-            'saleProducts' => $products->whereNotNull('sale_price')->values()->map->toStorefrontArray()->all(),
-            'categories' => Category::orderBy('name')->pluck('name')->all(),
-            'categoryModels' => Category::withCount('products')->orderBy('name')->get(),
-            'brands' => Brand::orderBy('name')->pluck('name')->all(),
-            'brandModels' => Brand::with(['products.images'])->withCount('products')->orderBy('name')->get(),
-            'cartCount' => $this->cartCount(request()),
-            'favoritesCount' => $this->favoritesQuery(request())->count(),
-            'heroSlides' => [
-                'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1500&q=88',
-                'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1500&q=88',
-                'https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=1500&q=88',
-                'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1500&q=88',
-                'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=1500&q=88',
-            ],
-        ], $extra);
+        return array_merge(
+            $this->storefrontViewData->storefrontData(request()),
+            $extra
+        );
     }
 
     private function storefrontInbox(): string

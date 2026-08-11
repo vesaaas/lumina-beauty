@@ -31,7 +31,7 @@ Completion criteria:
 
 ## Phase 2: Real Email Infrastructure
 
-Status: NEXT / PLANNED
+Status: COMPLETED LOCALLY
 
 Scope:
 
@@ -41,13 +41,13 @@ Scope:
 
 Completion criteria:
 
-- environment-only SMTP configuration documented
-- password reset/order/contact/OTP mail verified through configured driver
-- [EMAIL_INTEGRATIONS.md](EMAIL_INTEGRATIONS.md) updated without secrets
+- environment-only SMTP configuration documented: completed
+- password reset/order/contact/OTP mail verified through configured driver: completed locally by the developer
+- [EMAIL_INTEGRATIONS.md](EMAIL_INTEGRATIONS.md) updated without secrets: completed
 
 ## Phase 3: Email Verification
 
-Status: PLANNED / PARTIALLY STARTED IN WORKING TREE
+Status: COMPLETED
 
 Scope:
 
@@ -61,10 +61,10 @@ Scope:
 
 Completion criteria:
 
-- complete verification UX
-- resend/cooldown behavior implemented
-- tests for success, invalid code, expired code, attempt limit, resend behavior
-- no plaintext OTP storage/logging
+- complete verification UX: completed
+- resend/cooldown behavior implemented: completed
+- tests for success, invalid code, expired code, attempt limit, resend behavior: completed
+- no plaintext OTP storage/logging: completed
 
 ## Phase 4: Google Authentication
 

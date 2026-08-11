@@ -19,14 +19,57 @@ class AccountAuthTest extends TestCase
             'last_name' => 'Beauty',
             'email' => 'vesa@example.com',
             'phone' => '+383 44 111 222',
-'password' => 'Password123!',
-'password_confirmation' => 'Password123!',
-        ])->assertRedirect(route('home'));
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertRedirect(route('verification.otp.show'));
 
         $this->assertDatabaseHas('users', [
             'name' => 'Vesa Beauty',
             'email' => 'vesa@example.com',
             'phone' => '+383 44 111 222',
+            'is_admin' => false,
+        ]);
+
+        $user = User::where('email', 'vesa@example.com')->first();
+
+        $this->assertNotNull($user);
+        $this->assertNull($user->email_verified_at);
+
+        $this->assertDatabaseHas('email_verification_otps', [
+            'user_id' => $user->id,
+            'attempts' => 0,
+        ]);
+    }
+
+    public function test_weak_registration_password_is_rejected(): void
+    {
+        $this->post(route('register.submit'), [
+            'first_name' => 'Vesa',
+            'last_name' => 'Beauty',
+            'email' => 'weak@example.com',
+            'phone' => '+383 44 111 222',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'weak@example.com',
+        ]);
+    }
+
+    public function test_valid_strong_registration_password_is_accepted(): void
+    {
+        $this->post(route('register.submit'), [
+            'first_name' => 'Strong',
+            'last_name' => 'Customer',
+            'email' => 'strong@example.com',
+            'phone' => '+383 44 111 222',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertRedirect(route('verification.otp.show'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'strong@example.com',
             'is_admin' => false,
         ]);
     }

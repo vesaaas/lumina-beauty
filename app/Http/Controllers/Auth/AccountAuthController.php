@@ -7,6 +7,7 @@ use App\Models\CartItem;
 use App\Models\Favorite;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\EmailVerificationOtpService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,24 +17,31 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
-
 class AccountAuthController extends Controller
 {
-    public function register(Request $request): RedirectResponse
-    {
+    public function register(
+        Request $request,
+        EmailVerificationOtpService $otpService
+    ): RedirectResponse {
         $attributes = $request->validate([
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s().-]{7,30}$/'],
-'password' => [
-    'required',
-    'confirmed',
-    PasswordRule::min(8)
-        ->mixedCase()
-        ->numbers()
-        ->symbols(),
-],        ]);
+            'phone' => [
+                'required',
+                'string',
+                'max:30',
+                'regex:/^[0-9+\s().-]{7,30}$/',
+            ],
+            'password' => [
+                'required',
+                'confirmed',
+                PasswordRule::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
+        ]);
 
         $user = User::create([
             'name' => trim($attributes['first_name'].' '.$attributes['last_name']),
@@ -44,10 +52,16 @@ class AccountAuthController extends Controller
         ]);
 
         Auth::login($user);
+
         $this->attachGuestCommerce($request, $user);
+
         $request->session()->regenerate();
 
-        return redirect()->route('home')->with('status', 'Your Lumina Beauty account is ready.');
+        $otpService->generateAndSend($user);
+
+        return redirect()
+            ->route('verification.otp.show')
+            ->with('status', 'We sent a 6-digit verification code to your email.');
     }
 
     public function showForgotPassword(): View
@@ -73,7 +87,8 @@ class AccountAuthController extends Controller
 
         return $status === Password::RESET_LINK_SENT
             ? back()->with('status', __($status))
-            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+            : back()->withErrors(['email' => __($status)])
+                ->onlyInput('email');
     }
 
     public function showResetPassword(Request $request, string $token): View
@@ -89,14 +104,15 @@ class AccountAuthController extends Controller
         $attributes = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email', 'max:255'],
-'password' => [
-    'required',
-    'confirmed',
-    PasswordRule::min(8)
-        ->mixedCase()
-        ->numbers()
-        ->symbols(),
-],        ]);
+            'password' => [
+                'required',
+                'confirmed',
+                PasswordRule::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
+        ]);
 
         $user = User::where('email', $attributes['email'])->first();
 
@@ -117,8 +133,13 @@ class AccountAuthController extends Controller
         );
 
         return $status === Password::PASSWORD_RESET
-            ? redirect()->route('home')->with('account_modal', true)->with('status', __($status))
-            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+            ? redirect()
+                ->route('home')
+                ->with('account_modal', true)
+                ->with('status', __($status))
+            : back()
+                ->withErrors(['email' => __($status)])
+                ->onlyInput('email');
     }
 
     public function login(Request $request): RedirectResponse
@@ -135,6 +156,7 @@ class AccountAuthController extends Controller
         }
 
         $this->attachGuestCommerce($request, Auth::user());
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('home'));
@@ -150,35 +172,39 @@ class AccountAuthController extends Controller
     }
 
     public function adminLogin(Request $request): RedirectResponse
-{
-    $credentials = $request->validate([
-        'email' => ['required', 'email'],
-        'password' => ['required', 'string'],
-    ]);
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
 
-    if (! Auth::attempt($credentials, $request->boolean('remember')) || ! Auth::user()->is_admin) {
-        AuditLogService::log(
-            $request,
-            'admin.login_failed',
-            null,
-            [],
-            ['email' => $credentials['email']],
-        );
+        if (
+            ! Auth::attempt($credentials, $request->boolean('remember'))
+            || ! Auth::user()->is_admin
+        ) {
+            AuditLogService::log(
+                $request,
+                'admin.login_failed',
+                null,
+                [],
+                ['email' => $credentials['email']],
+            );
 
-        Auth::logout();
+            Auth::logout();
 
-        throw ValidationException::withMessages([
-            'email' => 'Admin access is available only for developer-created admin accounts.',
-        ])->redirectTo(route('admin.login'));
+            throw ValidationException::withMessages([
+                'email' => 'Admin access is available only for developer-created admin accounts.',
+            ])->redirectTo(route('admin.login'));
+        }
+
+        $this->attachGuestCommerce($request, Auth::user());
+
+        $request->session()->regenerate();
+
+        AuditLogService::log($request, 'admin.login');
+
+        return redirect()->route('admin.dashboard');
     }
-
-    $this->attachGuestCommerce($request, Auth::user());
-    $request->session()->regenerate();
-
-    AuditLogService::log($request, 'admin.login');
-
-    return redirect()->route('admin.dashboard');
-}
 
     public function logout(Request $request): RedirectResponse
     {
@@ -193,50 +219,82 @@ class AccountAuthController extends Controller
     private function attachGuestCommerce(Request $request, User $user): void
     {
         $sessionId = $request->session()->getId();
+
         $sessionCart = collect($request->session()->get('guest_cart', []))
-            ->mapWithKeys(fn ($quantity, $productId) => [(int) $productId => max(1, min(99, (int) $quantity))]);
+            ->mapWithKeys(
+                fn ($quantity, $productId) => [
+                    (int) $productId => max(1, min(99, (int) $quantity)),
+                ]
+            );
 
-        $sessionCart->each(function (int $quantity, int $productId) use ($user): void {
-            $existing = CartItem::where('user_id', $user->id)->where('product_id', $productId)->first();
+        $sessionCart->each(
+            function (int $quantity, int $productId) use ($user): void {
+                $existing = CartItem::where('user_id', $user->id)
+                    ->where('product_id', $productId)
+                    ->first();
 
-            if ($existing) {
-                $existing->update(['quantity' => min(99, $existing->quantity + $quantity)]);
+                if ($existing) {
+                    $existing->update([
+                        'quantity' => min(
+                            99,
+                            $existing->quantity + $quantity
+                        ),
+                    ]);
 
-                return;
+                    return;
+                }
+
+                CartItem::create([
+                    'user_id' => $user->id,
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                ]);
             }
-
-            CartItem::create([
-                'user_id' => $user->id,
-                'product_id' => $productId,
-                'quantity' => $quantity,
-            ]);
-        });
+        );
 
         $request->session()->forget('guest_cart');
 
-        CartItem::where('session_id', $sessionId)->get()->each(function (CartItem $guestItem) use ($user): void {
-            $existing = CartItem::where('user_id', $user->id)->where('product_id', $guestItem->product_id)->first();
+        CartItem::where('session_id', $sessionId)
+            ->get()
+            ->each(function (CartItem $guestItem) use ($user): void {
+                $existing = CartItem::where('user_id', $user->id)
+                    ->where('product_id', $guestItem->product_id)
+                    ->first();
 
-            if ($existing) {
-                $existing->increment('quantity', $guestItem->quantity);
-                $guestItem->delete();
+                if ($existing) {
+                    $existing->increment(
+                        'quantity',
+                        $guestItem->quantity
+                    );
 
-                return;
-            }
+                    $guestItem->delete();
 
-            $guestItem->update(['user_id' => $user->id, 'session_id' => null]);
-        });
+                    return;
+                }
 
-        Favorite::where('session_id', $sessionId)->get()->each(function (Favorite $guestFavorite) use ($user): void {
-            $existing = Favorite::where('user_id', $user->id)->where('product_id', $guestFavorite->product_id)->first();
+                $guestItem->update([
+                    'user_id' => $user->id,
+                    'session_id' => null,
+                ]);
+            });
 
-            if ($existing) {
-                $guestFavorite->delete();
+        Favorite::where('session_id', $sessionId)
+            ->get()
+            ->each(function (Favorite $guestFavorite) use ($user): void {
+                $existing = Favorite::where('user_id', $user->id)
+                    ->where('product_id', $guestFavorite->product_id)
+                    ->first();
 
-                return;
-            }
+                if ($existing) {
+                    $guestFavorite->delete();
 
-            $guestFavorite->update(['user_id' => $user->id, 'session_id' => null]);
-        });
+                    return;
+                }
+
+                $guestFavorite->update([
+                    'user_id' => $user->id,
+                    'session_id' => null,
+                ]);
+            });
     }
 }

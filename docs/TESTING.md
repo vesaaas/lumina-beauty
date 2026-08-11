@@ -28,6 +28,22 @@ Covers:
 - customer password reset notification is sent
 - admin password reset is blocked from the customer flow
 
+### `tests/Feature/EmailVerificationOtpTest.php`
+
+Covers:
+
+- registration creates an OTP row and sends `EmailVerificationOtpMail`
+- OTP storage is hashed and not plaintext
+- OTP expiry after 10 minutes
+- successful verification sets `email_verified_at` and deletes the OTP
+- incorrect OTP attempts increment
+- five incorrect attempts block verification until resend
+- resend replaces the OTP, resets attempts, resets expiry, and sends mail
+- previous OTP fails after resend
+- resend before 60 seconds is rejected without replacing the OTP or sending mail
+- verified users cannot open the OTP page or resend
+- unauthenticated users cannot access OTP endpoints
+
 ### `tests/Feature/AdminSecurityTest.php`
 
 Covers:
@@ -106,12 +122,13 @@ php -l app/Http/Controllers/StorefrontController.php
 
 ## Mail Fakes
 
-Tests use `Mail::fake()` for order email assertions and `Notification::fake()` for password reset notifications.
+Tests use `Mail::fake()` for order and OTP email assertions and `Notification::fake()` for password reset notifications. OTP tests assert against faked `EmailVerificationOtpMail` instances only and do not depend on real Gmail SMTP.
 
 ## Current Coverage Areas
 
 - Authentication registration/password reset basics.
 - Admin password reset isolation.
+- Account email OTP registration, verification, resend, cooldown, expiry, attempts, and auth access behavior.
 - Checkout/order persistence.
 - Stock rejection.
 - Product deletion protection and order history preservation.
@@ -125,8 +142,7 @@ Tests use `Mail::fake()` for order email assertions and `Notification::fake()` f
 
 ## Coverage Gaps
 
-- Email OTP verification success/failure/resend/cooldown behavior is not comprehensively covered.
-- Additional throttling tests can be added where they remain reliable.
+- Additional route-throttling boundary tests can be added where they remain reliable.
 - Frontend behavior is not covered by browser tests.
 
 ## Regression Rule
@@ -135,4 +151,4 @@ Any business/security bug fix should receive a regression test where reasonably 
 
 ## Latest Test Count
 
-Full `ddev artisan test` suite: 35 tests, 148 assertions passed.
+Full `ddev artisan test` suite: 46 tests, 209 assertions passed.

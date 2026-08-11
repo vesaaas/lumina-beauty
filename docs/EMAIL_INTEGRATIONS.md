@@ -8,6 +8,8 @@ Laravel mail configuration lives in `config/mail.php`. The default mailer is env
 
 No real SMTP credentials are documented here. Do not add credentials to Markdown.
 
+Gmail SMTP has been manually configured and tested locally by the developer through environment variables only. Credentials, email passwords, and Google App Passwords must remain outside the repository.
+
 ## Mailpit Development Flow
 
 DDEV provides Mailpit support in local development. Use DDEV mail settings when testing local SMTP/Mailpit behavior. Mailpit is for development inspection only, not production delivery.
@@ -46,21 +48,27 @@ About/contact messages are sent to `ADMIN_EMAIL` or `mail.from.address` fallback
 
 ## Email OTP
 
-IN PROGRESS in the current working tree:
+IMPLEMENTED for account email verification:
 
 - Mailable: `app/Mail/EmailVerificationOtpMail.php`
 - Markdown view: `resources/views/mail/email-verification-otp.blade.php`
 - Service: `app/Services/EmailVerificationOtpService.php`
 - Model/table: `EmailVerificationOtp` / `email_verification_otps`
+- Resend route: `POST /email/verify/resend`, route name `verification.otp.resend`
 
-The flow sends a six-digit code and stores only a hash. This is not production-complete and does not imply Gmail SMTP is configured.
+The flow sends a six-digit code and stores only a hash. OTPs expire after 10 minutes, allow at most five incorrect attempts, and are deleted after successful verification. An allowed resend replaces the previous OTP, resets attempts and expiry, updates `last_sent_at`, and makes the previous code invalid.
+
+Resend protection has two layers:
+
+- server-side 60-second cooldown based on `email_verification_otps.last_sent_at`
+- route throttle of `throttle:3,1`
+
+Early resend attempts do not generate a new code, do not send email, and keep the existing OTP valid.
 
 ## Planned
 
-- Gmail SMTP/manual configuration by the developer in a later phase.
-- Account email OTP verification completion, including resend/cooldown UX and production delivery.
 - Google OAuth.
 - Login 2FA.
 - Guest checkout email verification.
 
-Gmail configuration will be performed manually by the developer later. Do not configure Gmail, write SMTP credentials, or add OAuth credentials in this repository documentation.
+Do not configure Gmail, write SMTP credentials, or add OAuth credentials in this repository documentation.
