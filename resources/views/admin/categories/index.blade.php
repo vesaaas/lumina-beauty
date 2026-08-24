@@ -7,11 +7,20 @@
 @section('content')
   <section class="admin-panel">
     <div class="panel-heading"><h2>Add Category</h2></div>
-    <form class="admin-form" method="POST" action="{{ route('admin.categories.store') }}">
+    <form
+      class="admin-form"
+      method="POST"
+      action="{{ route('admin.categories.store') }}"
+      data-requires-password-confirmation
+      data-confirm-title="Create category"
+      data-confirm-message="Enter your current password to create this category."
+      data-confirm-button="Create Category"
+      data-confirm-tone="neutral"
+    >
       @csrf
       <label>Name <input type="text" name="name" required /></label>
       <label class="full">Description <textarea name="description" rows="3"></textarea></label>
-      <div class="form-actions"><button class="admin-button" type="submit">Create Category</button></div>
+      <div class="form-actions"><button class="admin-button" type="submit" data-password-confirm>Create Category</button></div>
     </form>
   </section>
   <section class="admin-panel">
@@ -22,12 +31,22 @@
         @foreach ($categories as $category)
           <tr>
             <td>
-              <form class="inline-form" method="POST" action="{{ route('admin.categories.update', $category) }}" data-change-tracked-form>
+              <form
+                class="inline-form"
+                method="POST"
+                action="{{ route('admin.categories.update', $category) }}"
+                data-change-tracked-form
+                data-requires-password-confirmation
+                data-confirm-title="Update category"
+                data-confirm-message="Enter your current password to update {{ $category->name }}."
+                data-confirm-button="Save Category"
+                data-confirm-tone="neutral"
+              >
                 @csrf
                 @method('PUT')
                 <input type="text" name="name" value="{{ $category->name }}" required />
                 <input type="hidden" name="description" value="{{ $category->description }}" />
-                <button class="admin-button secondary" type="submit" data-change-tracked-submit disabled>Save</button>
+                <button class="admin-button secondary" type="submit" data-change-tracked-submit data-password-confirm disabled>Save</button>
               </form>
             </td>
             <td>{{ $category->products_count }}</td>

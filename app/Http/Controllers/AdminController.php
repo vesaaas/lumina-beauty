@@ -100,6 +100,8 @@ class AdminController extends Controller
 
     public function storeProduct(Request $request): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $product = Product::create($this->productAttributes($request));
         $this->storeImages($request, $product);
 
@@ -127,6 +129,8 @@ class AdminController extends Controller
 
     public function updateProduct(Request $request, Product $product): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $oldValues = $product->toArray();
 
         $product->update($this->productAttributes($request, $product));
@@ -156,6 +160,8 @@ class AdminController extends Controller
 
     public function storeCategory(Request $request): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:categories,name'],
             'description' => ['nullable', 'string'],
@@ -178,6 +184,8 @@ class AdminController extends Controller
 
     public function updateCategory(Request $request, Category $category): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:categories,name,'.$category->id],
             'description' => ['nullable', 'string'],
@@ -239,6 +247,8 @@ class AdminController extends Controller
 
     public function storeBrand(Request $request): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:brands,name'],
             'description' => ['nullable', 'string'],
@@ -261,6 +271,8 @@ class AdminController extends Controller
 
     public function updateBrand(Request $request, Brand $brand): RedirectResponse
     {
+        $this->confirmAdminPassword($request);
+
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:brands,name,'.$brand->id],
             'description' => ['nullable', 'string'],
@@ -391,6 +403,13 @@ class AdminController extends Controller
     public function settings(): View
     {
         return view('admin.settings');
+    }
+
+    private function confirmAdminPassword(Request $request): void
+    {
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ]);
     }
 
     private function productAttributes(Request $request, ?Product $product = null): array

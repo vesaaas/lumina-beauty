@@ -40,6 +40,18 @@ class StorefrontSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_policy_can_view_customer_order_confirmation(): void
+    {
+        $customer = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $order = $this->order(['user_id' => $customer->id]);
+
+        $this->actingAs($admin)
+            ->get(route('orders.thank-you', $order))
+            ->assertOk()
+            ->assertSee($order->order_number);
+    }
+
     public function test_logout_invalidates_customer_session_and_protected_routes_redirect(): void
     {
         $user = User::factory()->create();
@@ -129,6 +141,22 @@ class StorefrontSecurityTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_contact_timing_submission_is_rejected(): void
+    {
+        Mail::fake();
+
+        $this->post(route('contact.send'), [
+            'name' => 'Fast Bot',
+            'email' => 'bot@example.com',
+            'topic' => 'Spam',
+            'message' => 'This message is long enough to pass normal validation.',
+            'website' => '',
+            'form_started_at' => time(),
+        ])->assertSessionHasErrors('form_started_at', null, 'contact');
+
+        Mail::assertNothingSent();
+    }
+
     public function test_contact_form_accepts_legitimate_submission(): void
     {
         Mail::fake();
@@ -141,6 +169,51 @@ class StorefrontSecurityTest extends TestCase
             'website' => '',
             'form_started_at' => time() - 10,
         ])->assertSessionHas('contact_status');
+
+        Mail::assertSent(StorefrontPageMessage::class);
+    }
+
+    public function test_about_honeypot_submission_is_rejected(): void
+    {
+        Mail::fake();
+
+        $this->post(route('about.send'), [
+            'name' => 'Bot',
+            'email' => 'bot@example.com',
+            'message' => 'This message is long enough to pass normal validation.',
+            'website' => 'https://spam.example',
+            'form_started_at' => time() - 10,
+        ])->assertSessionHasErrors('website', null, 'about');
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_about_timing_submission_is_rejected(): void
+    {
+        Mail::fake();
+
+        $this->post(route('about.send'), [
+            'name' => 'Fast Bot',
+            'email' => 'bot@example.com',
+            'message' => 'This message is long enough to pass normal validation.',
+            'website' => '',
+            'form_started_at' => time(),
+        ])->assertSessionHasErrors('form_started_at', null, 'about');
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_about_form_accepts_legitimate_submission(): void
+    {
+        Mail::fake();
+
+        $this->post(route('about.send'), [
+            'name' => 'Mira',
+            'email' => 'mira@example.com',
+            'message' => 'Can you tell me more about Lumina Beauty?',
+            'website' => '',
+            'form_started_at' => time() - 10,
+        ])->assertSessionHas('about_status');
 
         Mail::assertSent(StorefrontPageMessage::class);
     }

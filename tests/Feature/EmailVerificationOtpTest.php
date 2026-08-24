@@ -33,6 +33,7 @@ class EmailVerificationOtpTest extends TestCase
             EmailVerificationOtpMail::class,
             fn (EmailVerificationOtpMail $mail) => $mail->hasTo($user->email)
                 && preg_match('/^\d{6}$/', $mail->code) === 1
+                && $mail->afterCommit === true
         );
     }
 
@@ -97,6 +98,10 @@ class EmailVerificationOtpTest extends TestCase
             'user_id' => $user->id,
         ]);
         $this->assertNull($user->fresh()->email_verified_at);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.email_verification_expired',
+        ]);
     }
 
     public function test_correct_otp_verifies_user_and_deletes_otp(): void
@@ -111,6 +116,10 @@ class EmailVerificationOtpTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
         $this->assertDatabaseMissing('email_verification_otps', [
             'user_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.email_verified',
         ]);
     }
 
@@ -127,6 +136,10 @@ class EmailVerificationOtpTest extends TestCase
             $user->emailVerificationOtp()->firstOrFail()->attempts
         );
         $this->assertNull($user->fresh()->email_verified_at);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.email_verification_failed',
+        ]);
     }
 
     public function test_verification_is_blocked_after_maximum_attempts(): void
@@ -144,6 +157,10 @@ class EmailVerificationOtpTest extends TestCase
             5,
             $user->emailVerificationOtp()->firstOrFail()->attempts
         );
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.email_verification_locked',
+        ]);
     }
 
     public function test_resend_replaces_otp_resets_attempts_and_expiry_and_sends_mail(): void
@@ -167,6 +184,10 @@ class EmailVerificationOtpTest extends TestCase
         $this->assertTrue($newOtp->expires_at->greaterThan($originalOtp->expires_at));
         $this->assertTrue($newOtp->last_sent_at->greaterThan($originalOtp->last_sent_at));
         Mail::assertQueued(EmailVerificationOtpMail::class, 2);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.email_verification_otp_resent',
+        ]);
     }
 
     public function test_old_otp_fails_after_resend(): void

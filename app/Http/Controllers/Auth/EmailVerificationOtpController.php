@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\AuditLogService;
 use App\Services\EmailVerificationOtpService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,12 +51,24 @@ class EmailVerificationOtpController extends Controller
         if ($otp->expires_at->isPast()) {
             $otp->delete();
 
+            AuditLogService::log(
+                $request,
+                'registration.email_verification_expired',
+                $user,
+            );
+
             return back()->withErrors([
                 'code' => 'This verification code has expired. Please request a new code.',
             ]);
         }
 
         if ($otp->attempts >= 5) {
+            AuditLogService::log(
+                $request,
+                'registration.email_verification_locked',
+                $user,
+            );
+
             return back()->withErrors([
                 'code' => 'Too many incorrect attempts. Please request a new verification code.',
             ]);
@@ -63,6 +76,12 @@ class EmailVerificationOtpController extends Controller
 
         if (! Hash::check($attributes['code'], $otp->code_hash)) {
             $otp->increment('attempts');
+
+            AuditLogService::log(
+                $request,
+                'registration.email_verification_failed',
+                $user,
+            );
 
             return back()->withErrors([
                 'code' => 'The verification code is incorrect.',
@@ -74,6 +93,12 @@ class EmailVerificationOtpController extends Controller
         ])->save();
 
         $otp->delete();
+
+        AuditLogService::log(
+            $request,
+            'registration.email_verified',
+            $user,
+        );
 
         return redirect()
             ->route('home')
@@ -91,6 +116,12 @@ class EmailVerificationOtpController extends Controller
         }
 
         $otpService->resend($user);
+
+        AuditLogService::log(
+            $request,
+            'registration.email_verification_otp_resent',
+            $user,
+        );
 
         return back()->with(
             'status',

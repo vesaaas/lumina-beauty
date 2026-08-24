@@ -30,7 +30,7 @@ class EmailVerificationOtpService
         $user->unsetRelation('emailVerificationOtp');
 
         Mail::to($user->email)
-            ->queue(new EmailVerificationOtpMail($code));
+            ->queue((new EmailVerificationOtpMail($code))->afterCommit());
     }
 
     public function resend(User $user): void

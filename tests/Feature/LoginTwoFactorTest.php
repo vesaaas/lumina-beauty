@@ -30,6 +30,7 @@ class LoginTwoFactorTest extends TestCase
             LoginTwoFactorCodeMail::class,
             fn (LoginTwoFactorCodeMail $mail) => $mail->hasTo($user->email)
                 && $mail->context === LoginTwoFactorChallenge::CONTEXT_CUSTOMER
+                && $mail->afterCommit === true
                 && Hash::check(
                     $mail->code,
                     LoginTwoFactorChallenge::where('user_id', $user->id)
@@ -38,6 +39,11 @@ class LoginTwoFactorTest extends TestCase
                         ->code_hash
                 )
         );
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'customer.login_2fa_challenge_initiated',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+        ]);
     }
 
     public function test_customer_2fa_challenge_renders_as_auth_dialog(): void
@@ -63,6 +69,14 @@ class LoginTwoFactorTest extends TestCase
         $this->assertDatabaseMissing('login_two_factor_challenges', [
             'user_id' => $user->id,
             'context' => LoginTwoFactorChallenge::CONTEXT_CUSTOMER,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'customer.login_2fa_success',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'customer.login',
         ]);
     }
 
@@ -114,6 +128,11 @@ class LoginTwoFactorTest extends TestCase
             1,
             LoginTwoFactorChallenge::where('user_id', $user->id)->firstOrFail()->attempts
         );
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'customer.login_2fa_failed',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+        ]);
     }
 
     public function test_customer_2fa_blocks_after_maximum_attempts(): void
@@ -151,6 +170,10 @@ class LoginTwoFactorTest extends TestCase
 
         $this->post(route('login.2fa.verify'), ['code' => $code]);
         $this->post(route('logout'));
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'customer.logout',
+        ]);
 
         $this->post(route('login.2fa.verify'), ['code' => $code])
             ->assertRedirect(route('login'));

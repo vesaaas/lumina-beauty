@@ -33,22 +33,22 @@ Route::get('/account', fn () => redirect()->route('home')->with('account_modal',
 Route::get('/login', fn () => redirect()->route('home')->with('account_modal', true))->name('login');
 Route::get('/register', fn () => redirect()->route('home')->with('account_modal', true))->name('register');
 Route::post('/login', [AccountAuthController::class, 'login'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:customer-login')
     ->name('login.submit');
 Route::get('/login/2fa', [LoginTwoFactorController::class, 'show'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:customer-login-2fa-show')
     ->name('login.2fa.show');
 Route::post('/login/2fa', [LoginTwoFactorController::class, 'verify'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:customer-login-2fa')
     ->name('login.2fa.verify');
 Route::post('/login/2fa/resend', [LoginTwoFactorController::class, 'resend'])
-    ->middleware('throttle:3,1')
+    ->middleware('throttle:customer-login-2fa-resend')
     ->name('login.2fa.resend');
 Route::post('/login/2fa/cancel', [LoginTwoFactorController::class, 'cancel'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:customer-login-2fa-cancel')
     ->name('login.2fa.cancel');
 Route::post('/register', [AccountAuthController::class, 'register'])
-    ->middleware('throttle:3,10')
+    ->middleware('throttle:registration')
     ->name('register.submit');
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])
     ->middleware('guest')
@@ -61,33 +61,33 @@ Route::get('/forgot-password', [AccountAuthController::class, 'showForgotPasswor
     ->middleware('guest')
     ->name('password.request');
 Route::post('/forgot-password', [AccountAuthController::class, 'sendPasswordResetLink'])
-    ->middleware(['guest', 'throttle:3,10'])
+    ->middleware(['guest', 'throttle:forgot-password'])
     ->name('password.email');
 
 Route::get('/reset-password/{token}', [AccountAuthController::class, 'showResetPassword'])
     ->middleware('guest')
    ->name('password.reset');
 Route::post('/reset-password', [AccountAuthController::class, 'resetPassword'])
-    ->middleware(['guest', 'throttle:3,10'])
+    ->middleware(['guest', 'throttle:password-reset'])
     ->name('password.update');
 
 Route::get('/admin/login', [AccountAuthController::class, 'showAdminLogin'])
     ->name('admin.login');
 
 Route::post('/admin/login', [AccountAuthController::class, 'adminLogin'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:admin-login')
     ->name('admin.login.submit');
 Route::get('/admin/login/2fa', [LoginTwoFactorController::class, 'show'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:admin-login-2fa-show')
     ->name('admin.login.2fa.show');
 Route::post('/admin/login/2fa', [LoginTwoFactorController::class, 'verify'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:admin-login-2fa')
     ->name('admin.login.2fa.verify');
 Route::post('/admin/login/2fa/resend', [LoginTwoFactorController::class, 'resend'])
-    ->middleware('throttle:3,1')
+    ->middleware('throttle:admin-login-2fa-resend')
     ->name('admin.login.2fa.resend');
 Route::post('/admin/login/2fa/cancel', [LoginTwoFactorController::class, 'cancel'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:admin-login-2fa-cancel')
     ->name('admin.login.2fa.cancel');
 
 Route::post('/logout', [AccountAuthController::class, 'logout'])
@@ -98,21 +98,21 @@ Route::middleware('auth')->group(function () {
         ->name('verification.otp.show');
 
     Route::post('/email/verify', [EmailVerificationOtpController::class, 'verify'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:registration-otp-verify')
         ->name('verification.otp.verify');
 
     Route::post('/email/verify/resend', [EmailVerificationOtpController::class, 'resend'])
-        ->middleware('throttle:3,1')
+        ->middleware('throttle:registration-otp-resend')
         ->name('verification.otp.resend');
 });
 Route::get('/checkout/email/verify', [StorefrontController::class, 'showGuestCheckoutOtp'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:guest-checkout-otp-show')
     ->name('checkout.guest.otp.show');
 Route::post('/checkout/email/verify', [StorefrontController::class, 'verifyGuestCheckoutOtp'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:guest-checkout-otp-verify')
     ->name('checkout.guest.otp.verify');
 Route::post('/checkout/email/verify/resend', [StorefrontController::class, 'resendGuestCheckoutOtp'])
-    ->middleware('throttle:3,1')
+    ->middleware('throttle:guest-checkout-otp-resend')
     ->name('checkout.guest.otp.resend');
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
@@ -143,11 +143,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 });
 Route::get('/about-us', [StorefrontController::class, 'about'])->name('about');
 Route::post('/about-us', [StorefrontController::class, 'sendAboutMessage'])
-    ->middleware('throttle:3,10')
+    ->middleware('throttle:about')
     ->name('about.send');
 Route::get('/contact-us', [StorefrontController::class, 'contact'])->name('contact');
 Route::post('/contact-us', [StorefrontController::class, 'sendContactMessage'])
-    ->middleware('throttle:3,10')
+    ->middleware('throttle:contact')
     ->name('contact.send');
 
 Route::get('/hot-trends', [StorefrontController::class, 'hotTrends'])

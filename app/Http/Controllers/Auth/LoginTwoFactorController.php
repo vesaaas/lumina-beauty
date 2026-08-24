@@ -68,13 +68,13 @@ class LoginTwoFactorController extends Controller
         try {
             $twoFactorService->verify($user, $pending['context'], $attributes['code']);
         } catch (ValidationException $exception) {
-            if ($pending['context'] === LoginTwoFactorChallenge::CONTEXT_ADMIN) {
-                AuditLogService::log(
-                    $request,
-                    'admin.login_2fa_failed',
-                    $user
-                );
-            }
+            AuditLogService::log(
+                $request,
+                $pending['context'] === LoginTwoFactorChallenge::CONTEXT_ADMIN
+                    ? 'admin.login_2fa_failed'
+                    : 'customer.login_2fa_failed',
+                $user
+            );
 
             throw $exception;
         }
@@ -91,6 +91,9 @@ class LoginTwoFactorController extends Controller
         if ($pending['context'] === LoginTwoFactorChallenge::CONTEXT_ADMIN) {
             AuditLogService::log($request, 'admin.login_2fa_success');
             AuditLogService::log($request, 'admin.login');
+        } else {
+            AuditLogService::log($request, 'customer.login_2fa_success');
+            AuditLogService::log($request, 'customer.login');
         }
 
         return redirect()->to($this->safeIntendedRedirect($request, $pending));
@@ -115,6 +118,14 @@ class LoginTwoFactorController extends Controller
         }
 
         $twoFactorService->resend($user, $pending['context']);
+
+        AuditLogService::log(
+            $request,
+            $pending['context'] === LoginTwoFactorChallenge::CONTEXT_ADMIN
+                ? 'admin.login_2fa_resent'
+                : 'customer.login_2fa_resent',
+            $user
+        );
 
         return back()->with(
             'status',

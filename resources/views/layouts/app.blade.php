@@ -177,6 +177,9 @@
             <label class="checkbox-label"><input type="checkbox" name="remember" value="1" /> Remember me</label>
             <a class="text-link" href="{{ route('password.request') }}">Forgot Password?</a>
             <button class="primary-button" type="submit" data-submit-label="Signing in...">Login</button>
+            <a class="secondary-button" href="{{ route('auth.google.redirect') }}">
+              <i data-lucide="chrome"></i> Continue with Google
+            </a>
           </form>
           <form class="modal-form" method="POST" action="{{ route('register.submit') }}" data-account-panel="register" data-secure-form>
             @csrf

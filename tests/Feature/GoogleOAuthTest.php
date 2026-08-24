@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
+use App\Models\LoginTwoFactorChallenge;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +20,8 @@ class GoogleOAuthTest extends TestCase
 
     public function test_google_redirect_uses_socialite_driver(): void
     {
+        $this->configureGoogleOAuth();
+
         $provider = Mockery::mock();
         $provider->shouldReceive('redirect')
             ->once()
@@ -30,6 +34,43 @@ class GoogleOAuthTest extends TestCase
 
         $this->get(route('auth.google.redirect'))
             ->assertRedirect('https://accounts.google.com/o/oauth2/auth');
+    }
+
+    public function test_google_redirect_fails_gracefully_when_credentials_are_missing(): void
+    {
+        config([
+            'services.google.client_id' => null,
+            'services.google.client_secret' => null,
+            'services.google.redirect' => 'https://lumina-beauty.ddev.site/auth/google/callback',
+        ]);
+
+        Socialite::shouldReceive('driver')->never();
+
+        $this->get(route('auth.google.redirect'))
+            ->assertRedirect(route('home'))
+            ->assertSessionHasErrors(['email' => 'Google login is not configured yet.']);
+    }
+
+    public function test_configured_google_redirect_contains_client_id(): void
+    {
+        $this->configureGoogleOAuth();
+
+        $response = $this->get(route('auth.google.redirect'));
+        $location = $response->headers->get('Location');
+
+        $response->assertRedirect();
+        $this->assertIsString($location);
+        $this->assertStringContainsString('accounts.google.com', $location);
+        $this->assertStringContainsString('client_id=test-google-client-id', $location);
+        $this->assertStringNotContainsString('client_id=&', $location);
+    }
+
+    public function test_account_modal_exposes_google_login_button(): void
+    {
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('Continue with Google')
+            ->assertSee(route('auth.google.redirect'), false);
     }
 
     public function test_google_callback_logs_in_existing_customer_by_verified_email(): void
@@ -46,6 +87,14 @@ class GoogleOAuthTest extends TestCase
             ->assertRedirect(route('home'));
 
         $this->assertAuthenticatedAs($user);
+        $this->assertDatabaseMissing('login_two_factor_challenges', [
+            'user_id' => $user->id,
+            'context' => LoginTwoFactorChallenge::CONTEXT_CUSTOMER,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'customer.oauth_google_login',
+        ]);
     }
 
     public function test_google_callback_creates_verified_customer_for_verified_google_email(): void
@@ -60,6 +109,29 @@ class GoogleOAuthTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertFalse($user->is_admin);
         $this->assertNotNull($user->email_verified_at);
+        $this->assertSame(0, LoginTwoFactorChallenge::count());
+    }
+
+    public function test_google_callback_rejects_external_intended_redirect(): void
+    {
+        $this->mockGoogleUser('safe-google@example.com');
+
+        $this->withSession(['url.intended' => 'https://evil.example/phishing'])
+            ->get(route('auth.google.callback'))
+            ->assertRedirect(route('home'));
+
+        $this->assertAuthenticated();
+    }
+
+    public function test_google_callback_preserves_safe_customer_intended_redirect(): void
+    {
+        $this->mockGoogleUser('safe-local-google@example.com');
+
+        $this->withSession(['url.intended' => route('products.index')])
+            ->get(route('auth.google.callback'))
+            ->assertRedirect(route('products.index'));
+
+        $this->assertAuthenticated();
     }
 
     public function test_google_oauth_cannot_authenticate_admin_account(): void
@@ -76,6 +148,11 @@ class GoogleOAuthTest extends TestCase
 
         $this->assertGuest();
         $this->assertTrue($admin->fresh()->is_admin);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'oauth.google_admin_blocked',
+            'auditable_type' => User::class,
+            'auditable_id' => $admin->id,
+        ]);
     }
 
     public function test_unverified_google_email_is_rejected(): void
@@ -88,6 +165,9 @@ class GoogleOAuthTest extends TestCase
         $this->assertGuest();
         $this->assertDatabaseMissing('users', [
             'email' => 'unverified-google@example.com',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'oauth.google_failed',
         ]);
     }
 
@@ -107,6 +187,9 @@ class GoogleOAuthTest extends TestCase
             ->assertRedirect(route('home'));
 
         $this->assertGuest();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'oauth.google_failed',
+        ]);
     }
 
     private function mockGoogleUser(
@@ -131,5 +214,14 @@ class GoogleOAuthTest extends TestCase
             ->once()
             ->with('google')
             ->andReturn($provider);
+    }
+
+    private function configureGoogleOAuth(): void
+    {
+        config([
+            'services.google.client_id' => 'test-google-client-id',
+            'services.google.client_secret' => 'test-google-client-secret',
+            'services.google.redirect' => 'https://lumina-beauty.ddev.site/auth/google/callback',
+        ]);
     }
 }

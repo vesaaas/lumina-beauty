@@ -62,6 +62,14 @@ class AccountAuthController extends Controller
 
         $otpService->generateAndSend($user);
 
+        AuditLogService::log(
+            $request,
+            'registration.completed',
+            $user,
+            [],
+            ['email_hash' => hash('sha256', strtolower($user->email))],
+        );
+
         return redirect()
             ->route('verification.otp.show')
             ->with('status', 'We sent a 6-digit verification code to your email.');
@@ -87,6 +95,14 @@ class AccountAuthController extends Controller
         }
 
         $status = Password::sendResetLink($attributes);
+
+        if ($status === Password::RESET_LINK_SENT && $user) {
+            AuditLogService::log(
+                $request,
+                'password_reset.requested',
+                $user,
+            );
+        }
 
         return $status === Password::RESET_LINK_SENT
             ? back()->with('status', __($status))
@@ -127,11 +143,17 @@ class AccountAuthController extends Controller
 
         $status = Password::reset(
             $attributes,
-            function (User $user, string $password): void {
+            function (User $user, string $password) use ($request): void {
                 $user->forceFill([
                     'password' => $password,
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                AuditLogService::log(
+                    $request,
+                    'password_reset.completed',
+                    $user,
+                );
             },
         );
 
@@ -159,12 +181,26 @@ class AccountAuthController extends Controller
         $user = User::where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            AuditLogService::log(
+                $request,
+                'customer.login_failed',
+                null,
+                [],
+                ['email_hash' => hash('sha256', strtolower($credentials['email']))],
+            );
+
             throw ValidationException::withMessages([
                 'email' => 'The email or password is incorrect.',
             ])->redirectTo(url()->previous().'#account');
         }
 
         if ($user->is_admin) {
+            AuditLogService::log(
+                $request,
+                'customer.login_admin_blocked',
+                $user,
+            );
+
             throw ValidationException::withMessages([
                 'email' => 'Please use the admin login page for admin access.',
             ])->redirectTo(url()->previous().'#account');
@@ -192,6 +228,12 @@ class AccountAuthController extends Controller
         $twoFactorService->generateAndSend(
             $user,
             LoginTwoFactorChallenge::CONTEXT_CUSTOMER
+        );
+
+        AuditLogService::log(
+            $request,
+            'customer.login_2fa_challenge_initiated',
+            $user,
         );
 
         return redirect()
@@ -266,6 +308,16 @@ class AccountAuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user) {
+            AuditLogService::log(
+                $request,
+                $user->is_admin ? 'admin.logout' : 'customer.logout',
+                $user,
+            );
+        }
+
         Auth::logout();
 
         $request->session()->forget([

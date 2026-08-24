@@ -28,7 +28,7 @@ class GuestCheckoutOtpService
             ]
         );
 
-        Mail::to($email)->queue(new GuestCheckoutOtpMail($code));
+        Mail::to($email)->queue((new GuestCheckoutOtpMail($code))->afterCommit());
 
         return $otp;
     }

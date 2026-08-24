@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Mail\StorefrontPageMessage;
 use App\Mail\OrderStatusNotification;
+use App\Services\AuditLogService;
 use App\Services\GuestCheckoutOtpService;
 use App\Services\StorefrontViewData;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -265,6 +267,14 @@ class StorefrontController extends Controller
                 'otp_id' => $otp->id,
             ]);
 
+            AuditLogService::log(
+                $request,
+                'guest_checkout.otp_challenge_created',
+                $otp,
+                [],
+                ['email_hash' => hash('sha256', strtolower($attributes['customer_email']))],
+            );
+
             return redirect()
                 ->route('checkout.guest.otp.show')
                 ->with('status', 'We sent a 6-digit checkout code to your email.');
@@ -307,10 +317,30 @@ class StorefrontController extends Controller
             return redirect()->route('checkout.index');
         }
 
-        $guestCheckoutOtpService->verify(
-            (int) $pending['otp_id'],
-            $request->session()->getId(),
-            $attributes['code']
+        try {
+            $guestCheckoutOtpService->verify(
+                (int) $pending['otp_id'],
+                $request->session()->getId(),
+                $attributes['code']
+            );
+        } catch (ValidationException $exception) {
+            AuditLogService::log(
+                $request,
+                'guest_checkout.otp_failed',
+                null,
+                [],
+                ['otp_id' => (int) $pending['otp_id']],
+            );
+
+            throw $exception;
+        }
+
+        AuditLogService::log(
+            $request,
+            'guest_checkout.email_verified',
+            null,
+            [],
+            ['otp_id' => (int) $pending['otp_id']],
         );
 
         $request->session()->forget('guest_checkout.pending');
@@ -331,6 +361,14 @@ class StorefrontController extends Controller
         $guestCheckoutOtpService->resend(
             (int) $pending['otp_id'],
             $request->session()->getId()
+        );
+
+        AuditLogService::log(
+            $request,
+            'guest_checkout.otp_resent',
+            null,
+            [],
+            ['otp_id' => (int) $pending['otp_id']],
         );
 
         return back()->with(
@@ -510,7 +548,8 @@ class StorefrontController extends Controller
     private function canViewOrderConfirmation(Request $request, Order $order): bool
     {
         if ($order->user_id !== null) {
-            return $request->user()?->id === $order->user_id;
+            return $request->user() !== null
+                && Gate::forUser($request->user())->allows('view', $order);
         }
 
         return in_array($order->id, $request->session()->get('order_confirmation_ids', []), true);

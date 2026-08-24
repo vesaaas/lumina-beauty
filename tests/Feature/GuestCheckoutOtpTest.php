@@ -36,6 +36,7 @@ class GuestCheckoutOtpTest extends TestCase
         Mail::assertQueued(
             GuestCheckoutOtpMail::class,
             fn (GuestCheckoutOtpMail $mail) => $mail->hasTo('guest@example.com')
+                && $mail->afterCommit === true
                 && Hash::check(
                     $mail->code,
                     GuestCheckoutOtp::where('email', 'guest@example.com')
@@ -43,6 +44,10 @@ class GuestCheckoutOtpTest extends TestCase
                         ->code_hash
                 )
         );
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'guest_checkout.otp_challenge_created',
+            'auditable_type' => GuestCheckoutOtp::class,
+        ]);
         Mail::assertNotSent(OrderStatusNotification::class);
     }
 
@@ -64,6 +69,9 @@ class GuestCheckoutOtpTest extends TestCase
         ]);
         $this->assertSame([], session('guest_cart', []));
         Mail::assertSent(OrderStatusNotification::class, 1);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'guest_checkout.email_verified',
+        ]);
     }
 
     public function test_wrong_guest_checkout_otp_is_rejected(): void
@@ -75,6 +83,9 @@ class GuestCheckoutOtpTest extends TestCase
 
         $this->assertSame(0, Order::count());
         $this->assertSame(1, GuestCheckoutOtp::firstOrFail()->attempts);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'guest_checkout.otp_failed',
+        ]);
     }
 
     public function test_expired_guest_checkout_otp_is_rejected(): void
@@ -121,6 +132,9 @@ class GuestCheckoutOtpTest extends TestCase
 
         $this->assertSame(1, Order::count());
         Mail::assertQueued(GuestCheckoutOtpMail::class, 2);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'guest_checkout.otp_resent',
+        ]);
     }
 
     public function test_arbitrary_guest_cannot_verify_another_guest_checkout(): void

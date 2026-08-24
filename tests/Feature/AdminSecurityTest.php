@@ -131,6 +131,166 @@ class AdminSecurityTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
     }
 
+    public function test_wrong_password_prevents_category_creation(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->post(route('admin.categories.store'), [
+            'name' => 'Fragrance',
+            'description' => 'Fine fragrances.',
+            'password' => 'WrongPassword123!',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $response->assertSessionMissing('_old_input.password');
+        $this->assertDatabaseMissing('categories', ['name' => 'Fragrance']);
+    }
+
+    public function test_correct_password_allows_category_creation(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('admin.categories.store'), [
+            'name' => 'Fragrance',
+            'description' => 'Fine fragrances.',
+            'password' => 'Password123!',
+        ])->assertSessionHas('admin_status', 'Category created.');
+
+        $this->assertDatabaseHas('categories', ['name' => 'Fragrance']);
+    }
+
+    public function test_wrong_password_prevents_category_update(): void
+    {
+        $admin = $this->admin();
+        $category = Category::create(['name' => 'Skin', 'slug' => 'skin']);
+
+        $this->actingAs($admin)->put(route('admin.categories.update', $category), [
+            'name' => 'Updated Skin',
+            'description' => 'Updated.',
+            'password' => 'WrongPassword123!',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertSame('Skin', $category->fresh()->name);
+    }
+
+    public function test_correct_password_allows_category_update(): void
+    {
+        $admin = $this->admin();
+        $category = Category::create(['name' => 'Skin', 'slug' => 'skin']);
+
+        $this->actingAs($admin)->put(route('admin.categories.update', $category), [
+            'name' => 'Updated Skin',
+            'description' => 'Updated.',
+            'password' => 'Password123!',
+        ])->assertSessionHas('admin_status', 'Category updated.');
+
+        $this->assertSame('Updated Skin', $category->fresh()->name);
+    }
+
+    public function test_wrong_password_prevents_brand_creation(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('admin.brands.store'), [
+            'name' => 'Aster',
+            'description' => 'Aster brand.',
+            'password' => 'WrongPassword123!',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('brands', ['name' => 'Aster']);
+    }
+
+    public function test_correct_password_allows_brand_creation(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('admin.brands.store'), [
+            'name' => 'Aster',
+            'description' => 'Aster brand.',
+            'password' => 'Password123!',
+        ])->assertSessionHas('admin_status', 'Brand created.');
+
+        $this->assertDatabaseHas('brands', ['name' => 'Aster']);
+    }
+
+    public function test_wrong_password_prevents_brand_update(): void
+    {
+        $admin = $this->admin();
+        $brand = Brand::create(['name' => 'Aster', 'slug' => 'aster']);
+
+        $this->actingAs($admin)->put(route('admin.brands.update', $brand), [
+            'name' => 'Aster Updated',
+            'description' => 'Updated.',
+            'password' => 'WrongPassword123!',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertSame('Aster', $brand->fresh()->name);
+    }
+
+    public function test_correct_password_allows_brand_update(): void
+    {
+        $admin = $this->admin();
+        $brand = Brand::create(['name' => 'Aster', 'slug' => 'aster']);
+
+        $this->actingAs($admin)->put(route('admin.brands.update', $brand), [
+            'name' => 'Aster Updated',
+            'description' => 'Updated.',
+            'password' => 'Password123!',
+        ])->assertSessionHas('admin_status', 'Brand updated.');
+
+        $this->assertSame('Aster Updated', $brand->fresh()->name);
+    }
+
+    public function test_wrong_password_prevents_product_creation(): void
+    {
+        $admin = $this->admin();
+        [$category, $brand] = $this->catalog();
+
+        $this->actingAs($admin)->post(route('admin.products.store'), $this->productPayload($category, $brand, [
+            'password' => 'WrongPassword123!',
+        ]))->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('products', ['name' => 'Protected Serum']);
+    }
+
+    public function test_correct_password_allows_product_creation(): void
+    {
+        $admin = $this->admin();
+        [$category, $brand] = $this->catalog();
+
+        $this->actingAs($admin)->post(route('admin.products.store'), $this->productPayload($category, $brand, [
+            'password' => 'Password123!',
+        ]))->assertSessionHas('admin_status', 'Product created.');
+
+        $this->assertDatabaseHas('products', ['name' => 'Protected Serum']);
+    }
+
+    public function test_wrong_password_prevents_product_update(): void
+    {
+        $admin = $this->admin();
+        [$category, $brand, $product] = $this->product();
+
+        $this->actingAs($admin)->put(route('admin.products.update', $product), $this->productPayload($category, $brand, [
+            'name' => 'Changed Serum',
+            'password' => 'WrongPassword123!',
+        ]))->assertSessionHasErrors('password');
+
+        $this->assertSame('Lumina Serum', $product->fresh()->name);
+    }
+
+    public function test_correct_password_allows_product_update(): void
+    {
+        $admin = $this->admin();
+        [$category, $brand, $product] = $this->product();
+
+        $this->actingAs($admin)->put(route('admin.products.update', $product), $this->productPayload($category, $brand, [
+            'name' => 'Changed Serum',
+            'password' => 'Password123!',
+        ]))->assertSessionHas('admin_status', 'Product updated.');
+
+        $this->assertSame('Changed Serum', $product->fresh()->name);
+    }
+
     public function test_allowed_order_status_transitions(): void
     {
         foreach ([
@@ -279,23 +439,52 @@ class AdminSecurityTest extends TestCase
         $this->assertSame('0', $response->headers->get('Expires'));
     }
 
-    private function product(): array
+    private function catalog(): array
     {
         $category = Category::create(['name' => 'Skin Care', 'slug' => 'skin-care']);
         $brand = Brand::create(['name' => 'Lumina', 'slug' => 'lumina']);
 
-        Product::create([
+        return [$category, $brand];
+    }
+
+    private function product(): array
+    {
+        [$category, $brand] = $this->catalog();
+
+        $product = Product::create([
             'category_id' => $category->id,
             'brand_id' => $brand->id,
             'name' => 'Lumina Serum',
             'slug' => 'lumina-serum',
             'description' => 'A polished serum.',
+            'product_type' => 'Serum',
+            'properties' => ['Hydrating'],
+            'gender' => 'Unisex',
+            'size' => '30ml',
             'price' => 32,
             'stock' => 5,
             'is_active' => true,
         ]);
 
-        return [$category, $brand];
+        return [$category, $brand, $product];
+    }
+
+    private function productPayload(Category $category, Brand $brand, array $overrides = []): array
+    {
+        return $overrides + [
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'Protected Serum',
+            'description' => 'A protected product mutation.',
+            'product_type' => 'Serum',
+            'properties' => ['Hydrating'],
+            'gender' => 'Unisex',
+            'size' => '30ml',
+            'price' => 32,
+            'sale_price' => null,
+            'stock' => 5,
+            'is_active' => '1',
+        ];
     }
 
     private function order(string $status): Order

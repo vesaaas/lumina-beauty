@@ -7,7 +7,17 @@
 
 @section('content')
   <section class="admin-panel">
-    <form class="admin-form" method="POST" action="{{ $isEdit ? route('admin.products.update', $product) : route('admin.products.store') }}" enctype="multipart/form-data">
+    <form
+      class="admin-form"
+      method="POST"
+      action="{{ $isEdit ? route('admin.products.update', $product) : route('admin.products.store') }}"
+      enctype="multipart/form-data"
+      data-requires-password-confirmation
+      data-confirm-title="{{ $isEdit ? 'Update product' : 'Create product' }}"
+      data-confirm-message="Enter your current password to {{ $isEdit ? 'update this product' : 'create this product' }}."
+      data-confirm-button="{{ $isEdit ? 'Save Product' : 'Create Product' }}"
+      data-confirm-tone="neutral"
+    >
       @csrf
       @if ($isEdit)
         @method('PUT')
@@ -85,7 +95,7 @@
       </div>
 
       <div class="form-actions">
-        <button class="admin-button" type="submit">{{ $isEdit ? 'Save Product' : 'Create Product' }}</button>
+        <button class="admin-button" type="submit" data-password-confirm>{{ $isEdit ? 'Save Product' : 'Create Product' }}</button>
         <a class="admin-link-button secondary" href="{{ route('admin.products.index') }}">Cancel</a>
       </div>
     </form>

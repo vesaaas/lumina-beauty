@@ -34,7 +34,7 @@ class LoginTwoFactorService
         $user->unsetRelation('loginTwoFactorChallenge');
 
         Mail::to($user->email)->queue(
-            new LoginTwoFactorCodeMail($code, $context)
+            (new LoginTwoFactorCodeMail($code, $context))->afterCommit()
         );
     }
 

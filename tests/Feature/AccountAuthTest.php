@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class AccountAuthTest extends TestCase
@@ -38,6 +40,10 @@ class AccountAuthTest extends TestCase
         $this->assertDatabaseHas('email_verification_otps', [
             'user_id' => $user->id,
             'attempts' => 0,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'action' => 'registration.completed',
         ]);
     }
 
@@ -102,6 +108,35 @@ class AccountAuthTest extends TestCase
         ])->assertSessionHas('status');
 
         Notification::assertSentTo($user, ResetPassword::class);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'password_reset.requested',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+        ]);
+    }
+
+    public function test_customer_password_reset_completion_is_logged(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'reset-complete@example.com',
+            'password' => 'Password123!',
+            'is_admin' => false,
+        ]);
+        $token = Password::createToken($user);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => 'reset-complete@example.com',
+            'password' => 'NewPassword123!',
+            'password_confirmation' => 'NewPassword123!',
+        ])->assertRedirect(route('home'));
+
+        $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'password_reset.completed',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+        ]);
     }
 
     public function test_admin_password_reset_is_not_sent_from_customer_flow(): void
