@@ -4,7 +4,12 @@ A full-stack e-commerce platform for cosmetic products developed as my Bachelor'
 
 ## Features
 
-- User Authentication & Authorization
+- Customer Authentication & Authorization
+- Registration Email OTP Verification
+- Customer Password Login Email 2FA
+- Dedicated Admin Login Email 2FA
+- Guest Checkout Email OTP Verification
+- Google OAuth Customer Login
 - Product Management
 - Category Management
 - Brand Management
@@ -14,7 +19,10 @@ A full-stack e-commerce platform for cosmetic products developed as my Bachelor'
 - Order Management
 - Admin Dashboard
 - Product Filtering
-- Email Notifications (Mailpit)
+- Product Knowledge Layer for structured catalog suitability, ingredient, routine, and attribute metadata
+- Deterministic Product Retrieval, Comparison, Recommendation, And Skincare Routine Foundations
+- Gmail SMTP Email Notifications Through Laravel Mail
+- Security Headers, Audit Logging, Rate Limiting, And Session Protection
 
 ## Technologies
 
@@ -27,7 +35,8 @@ A full-stack e-commerce platform for cosmetic products developed as my Bachelor'
 - MariaDB / MySQL
 - Docker
 - DDEV
-- Mailpit
+- Gmail SMTP for Laravel runtime mail
+- Mailpit as an optional DDEV local inspection utility only
 
 ## Installation
 
@@ -61,5 +70,6 @@ This project was developed as my Bachelor's thesis in Computer Science (Software
 
 ## Future Improvements
 
+- AI chatbot using the Product Knowledge Layer as structured catalog context.
 - Payment gateway integration.
 - Product reviews and ratings.

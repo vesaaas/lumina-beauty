@@ -2,33 +2,107 @@
 
 Central security document for Lumina Beauty. Read with [CURRENT_STATE.md](CURRENT_STATE.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [DATABASE.md](DATABASE.md).
 
-## Current Controls
+## Phase Status
 
-### Customer Registration
+Phase 1 - Security & Authentication is complete as of the current `feature/security-authentication` branch state. Latest verified full suite after Phase 2: 160 tests, 878 assertions, 0 failures.
 
-`AccountAuthController::register()` validates first name, last name, unique email, phone, password confirmation, and a strong password rule. It creates a non-admin user, logs the user in, merges guest commerce state, regenerates the session, and currently triggers the in-progress email OTP service.
+## Customer Registration And Email OTP
 
-### Customer Login
+`AccountAuthController::register()` validates first name, last name, unique email, phone, password confirmation, and a strong password rule. It creates a non-admin user, logs the user in, merges guest commerce state, regenerates the session, creates an account email OTP, and redirects to the verification flow.
 
-`POST /login` validates email/password, rejects admin accounts from the customer login flow, and throttles at `5,1`. Verified customers are not fully authenticated immediately; the controller starts an email login 2FA challenge, regenerates the session, stores only pending user/context state in the session, and queues a hashed-at-rest six-digit code through `LoginTwoFactorService`.
+Account email verification uses:
 
-After a successful 2FA challenge, Laravel authenticates the customer, merges guest commerce state, regenerates the session, clears pending 2FA state, and deletes the used 2FA row. Unverified customers with valid credentials are authenticated only into the email verification flow and redirected to `/email/verify`; missing or expired verification OTPs are regenerated safely.
+- table/model: `email_verification_otps` / `EmailVerificationOtp`
+- controller: `EmailVerificationOtpController`
+- service: `EmailVerificationOtpService`
+- mailable: `EmailVerificationOtpMail`
+- route names: `verification.otp.show`, `verification.otp.verify`, `verification.otp.resend`
+- hashed six-digit code storage
+- 10-minute expiry
+- five-attempt limit
+- 15-second resend cooldown
+- resend replacement that invalidates old codes
+- successful verification that sets `email_verified_at` and deletes the OTP row
+- queued mail with `afterCommit()`
 
-### Admin Login
+Expired OTPs are deleted. Early resend attempts do not generate a replacement code and do not queue email.
 
-`GET/POST /admin/login` is separate from the account modal. `adminLogin()` validates credentials through Laravel's auth provider, requires `users.is_admin`, logs failed admin attempts through `AuditLogService`, and starts an admin email login 2FA challenge without creating a full admin session. Successful admin 2FA authenticates the admin, regenerates the session, clears pending state, deletes the used code, and logs `admin.login_2fa_success` plus `admin.login`.
+## Customer Password Login And Email 2FA
 
-Admin login 2FA is independent of customer registration email OTP. Developer-provisioned admins are authorized by `users.is_admin` and are not required to complete the public customer email verification OTP flow before receiving an admin login 2FA challenge.
+`POST /login` validates email/password and rejects admin users from the customer login flow. Verified customer password login starts an email 2FA challenge instead of immediately authenticating.
 
-### Single-Admin Design
+Customer login 2FA uses:
 
-Admin capability is represented by `users.is_admin`. `AdminUserSeeder` creates or updates the admin from environment variables and requires both `ADMIN_EMAIL` and `ADMIN_PASSWORD`. It refuses to promote a non-admin user that already owns the configured admin email; resolve that database record manually before rerunning the seeder. This repository does not use roles/permissions. Maintain the single-admin decision unless explicitly changed. See [adr/002-single-administrator-model.md](adr/002-single-administrator-model.md).
+- table/model: `login_two_factor_challenges` / `LoginTwoFactorChallenge`
+- context: `customer`
+- controller: `LoginTwoFactorController`
+- service: `LoginTwoFactorService`
+- mailable: `LoginTwoFactorCodeMail`
+- route names: `login.2fa.show`, `login.2fa.verify`, `login.2fa.resend`, `login.2fa.cancel`
+- hashed six-digit code storage
+- 10-minute expiry
+- five-attempt limit through `LoginTwoFactorService::MAX_ATTEMPTS`
+- 15-second resend cooldown
+- old code invalidation on resend
+- used code deletion after successful verification
+- pending user/context/remember/intended state in the server-side session
+- full Laravel authentication only after successful 2FA
+- session regeneration after authentication
+- guest cart/favorite merge after successful authentication
+- queued mail with `afterCommit()`
 
-### Password Reset
+Unverified customers with valid credentials are routed into the registration email verification flow and are not allowed through account-backed commerce routes until verified.
 
-Customer password reset uses Laravel's password broker and `password_reset_tokens`. Admin users are intentionally blocked from the customer password reset flow. Reset routes are guest-only and password reset submission is throttled at `3,10`.
+## Admin Login And Email 2FA
 
-### Password Policy
+Admin login is separate from the customer account modal:
+
+- `GET /admin/login`
+- `POST /admin/login`
+- `GET /admin/login/2fa`
+- `POST /admin/login/2fa`
+- `POST /admin/login/2fa/resend`
+- `POST /admin/login/2fa/cancel`
+
+`AccountAuthController::adminLogin()` validates credentials through Laravel's auth provider, requires `users.is_admin`, logs failed admin attempts, and starts an admin-context 2FA challenge without creating a full admin session.
+
+Admin login 2FA uses the same `LoginTwoFactorService` and `login_two_factor_challenges` table with context `admin`. Successful admin 2FA authenticates the admin, regenerates the session, clears pending state, deletes the used challenge, logs `admin.login_2fa_success`, and logs `admin.login`.
+
+Admin 2FA is independent of customer registration email OTP. Developer-provisioned admins are authorized by `users.is_admin` and are not required to complete the public customer email verification OTP.
+
+## Google OAuth
+
+Google OAuth is implemented through Laravel Socialite:
+
+- routes: `auth.google.redirect`, `auth.google.callback`
+- controller: `GoogleAuthController`
+- config: `config/services.php` key `services.google`
+- env variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- local callback: `https://lumina-beauty.ddev.site/auth/google/callback`
+
+Policy: Google OAuth is treated as the primary authentication factor. A successful Google OAuth login does not require an additional Lumina email OTP or login 2FA challenge.
+
+Implemented behavior:
+
+- missing Google credentials fail locally with `Google login is not configured yet.`
+- Socialite state protection is preserved
+- verified Google email is required
+- existing customer accounts can be matched by verified email
+- new non-admin customer accounts can be created for verified Google emails
+- matching unverified customer accounts can be marked verified when Google confirms the email
+- admin accounts are blocked from customer Google OAuth
+- session is regenerated after successful OAuth authentication
+- guest cart/favorite state is merged after successful OAuth
+- safe intended redirects are preserved and external/admin redirects are rejected
+- OAuth failures/cancellations are handled without exposing secrets
+
+Real Google client credentials must remain only in `.env` or the runtime environment.
+
+## Password Reset
+
+Customer password reset uses Laravel's password broker and `password_reset_tokens`. Admin users are intentionally blocked from the customer password reset flow. Password reset routes are guest-only and use named throttling. Password reset completion is audit logged without logging tokens or passwords.
+
+## Password Policy
 
 Registration and reset require:
 
@@ -38,41 +112,44 @@ Registration and reset require:
 - symbols
 - password confirmation
 
-### Sensitive Admin Password Confirmation
+Passwords are always stored through Laravel hashing.
 
-Sensitive admin actions verify the submitted current password directly with Laravel server-side validation:
+## Rate Limiting
 
-- Brand deletion requires `password => current_password`.
-- Category deletion requires `password => current_password`.
-- Order status update requires `password => current_password`.
+Rate limiting is defined as named Laravel `RateLimiter::for(...)` entries in `AppServiceProvider` and attached through `routes/web.php`. The old broad numeric throttles were replaced because Laravel's unauthenticated default key can share an IP/domain bucket across unrelated routes.
 
-The admin UI uses a reusable password confirmation modal. The submitted password is injected into the original Laravel form only at submit time and is not logged.
+| Limiter | Limit | Keying strategy |
+| --- | ---: | --- |
+| `customer-login` | 5/min | flow + SHA-256 email + IP |
+| `customer-login-2fa-show` | 10/min | flow + pending context + pending user/session + IP |
+| `customer-login-2fa` | 5/min | flow + pending context + pending user/session + IP |
+| `customer-login-2fa-resend` | 3/min | flow + pending context + pending user/session + IP |
+| `customer-login-2fa-cancel` | 10/min | flow + pending context + pending user/session + IP |
+| `admin-login` | 5/min | flow + SHA-256 email + IP |
+| `admin-login-2fa-show` | 10/min | flow + pending context + pending user/session + IP |
+| `admin-login-2fa` | 5/min | flow + pending context + pending user/session + IP |
+| `admin-login-2fa-resend` | 3/min | flow + pending context + pending user/session + IP |
+| `admin-login-2fa-cancel` | 10/min | flow + pending context + pending user/session + IP |
+| `registration` | 3/10 min | flow + SHA-256 email + IP |
+| `registration-otp-verify` | 5/min | flow + authenticated user or guest + IP |
+| `registration-otp-resend` | 3/min | flow + authenticated user or guest + IP |
+| `forgot-password` | 3/10 min | flow + SHA-256 email + IP |
+| `password-reset` | 3/10 min | flow + SHA-256 email + IP |
+| `guest-checkout-otp-show` | 10/min | flow + OTP id/session + IP |
+| `guest-checkout-otp-verify` | 5/min | flow + OTP id/session + IP |
+| `guest-checkout-otp-resend` | 3/min | flow + OTP id/session + IP |
+| `contact` | 3/10 min | flow + SHA-256 email + IP |
+| `about` | 3/10 min | flow + SHA-256 email + IP |
 
-The temporary `/admin/confirm-password` route/controller/view experiment has been removed to avoid competing password confirmation mechanisms.
+Admin and customer flows do not share buckets. Login and 2FA verification do not share buckets. Verify and resend do not share buckets. Contact and about have separate buckets. Add to Cart intentionally has no auth/security throttle.
 
-### Rate Limiting
+## Session Lifecycle And No-Cache
 
-Configured in routes:
+Registration, unverified-login email verification entry, 2FA challenge initiation, successful 2FA authentication, Google OAuth authentication, and admin 2FA authentication regenerate the session as appropriate. Logout clears pending login 2FA and guest checkout OTP session state, invalidates the session, and regenerates the CSRF token.
 
-- Login: `throttle:5,1`
-- Register: `throttle:3,10`
-- Password reset request/update: `throttle:3,10`
-- Admin login: `throttle:5,1`
-- Email OTP verify: `throttle:5,1`
-- Email OTP resend: `throttle:3,1`, plus a server-side 15-second cooldown based on `email_verification_otps.last_sent_at`
-- Login 2FA verify: `throttle:5,1`
-- Login 2FA resend: `throttle:3,1`, plus a server-side 15-second cooldown based on `login_two_factor_challenges.last_sent_at`
-- Guest checkout OTP verify: `throttle:5,1`
-- Guest checkout OTP resend: `throttle:3,1`, plus a server-side 15-second cooldown
-- Contact/about submission: `throttle:3,10`
+`NoCacheAuthenticatedPages` applies no-store/no-cache/private headers to authenticated/private storefront, checkout/order, OTP/2FA, and admin responses so browser history/back-button restores must revalidate after logout. Server-side auth, admin, ownership, and same-session guest checks remain authoritative.
 
-### Session Lifecycle
-
-Registration, unverified-login email verification entry, 2FA challenge initiation, successful 2FA authentication, Google OAuth authentication, and admin 2FA authentication regenerate the session. Logout clears pending login 2FA and guest checkout OTP session state, invalidates the session, and regenerates the CSRF token.
-
-Authenticated/private storefront responses, OTP/2FA challenge responses, checkout/cart/favorites/order routes, and admin responses include no-store/no-cache/private headers through `NoCacheAuthenticatedPages` so browser history/back-button restores must revalidate after logout. Server-side auth, admin, ownership, and same-session guest checks remain authoritative.
-
-### Security Headers
+## Security Headers
 
 `SecurityHeaders` appends:
 
@@ -80,108 +157,103 @@ Authenticated/private storefront responses, OTP/2FA challenge responses, checkou
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-- `Content-Security-Policy-Report-Only`
+- CSP as `Content-Security-Policy-Report-Only` by default
 
-CSP is report-only and currently permits self, inline scripts/styles, Lucide from unpkg, Google Fonts, Unsplash images, and data images/fonts.
+CSP can be enforced by setting `SECURITY_CSP_ENFORCE=true`. The policy currently permits self, inline scripts/styles, Lucide from unpkg, Google Fonts, Unsplash images, and data images/fonts.
 
-### Admin Credentials
+HSTS is configurable through:
 
-Admin credentials are environment-driven through `AdminUserSeeder`. Do not write actual admin credentials to Markdown, code comments, logs, tests, or commits.
+- `SECURITY_HSTS_ENABLED`
+- `SECURITY_HSTS_MAX_AGE`
+- `SECURITY_HSTS_INCLUDE_SUBDOMAINS`
+- `SECURITY_HSTS_PRELOAD`
 
-### Audit Logging
+HSTS is sent only for secure production HTTPS requests when enabled. It is not sent in normal local DDEV development.
 
-`AuditLogService` writes selected actions to `audit_logs`, including admin login, failed admin login, product/category/brand changes, brand/category deletion, and order status changes.
-
-### Authorization
+## Authorization And IDOR Protection
 
 - Admin routes require `auth` and `admin` middleware.
-- Authenticated, unverified customers are redirected to email verification from account-backed storefront commerce routes through `customer.verified`; guests remain allowed to browse and use guest flows.
-- Cart item updates/deletes check owner attributes.
-- Storefront product detail aborts inactive products.
-- Checkout associates authenticated orders with the current user where available.
+- `EnsureUserIsAdmin` aborts non-admin users with 403.
+- `OrderPolicy` allows admins to view orders and authenticated customers to view only their own orders.
+- `StorefrontController::thankYou()` protects authenticated order confirmations through policy and guest order confirmations through same-session checkout access.
+- Authenticated cart item updates/deletes verify ownership with `ownsCartItem()`.
+- Guest checkout OTP rows are bound to Laravel session ID and the pending `otp_id`.
+- Customer/admin login 2FA challenge routes reject context mixing.
 
-### CSRF
+## Sensitive Admin Password Confirmation
 
-Laravel web routes and Blade forms use CSRF protection.
+Sensitive admin mutations require current password validation with Laravel's `current_password` rule:
 
-### Stock And Order Integrity
+- product creation
+- product update
+- category creation
+- category update
+- category deletion
+- brand creation
+- brand update
+- brand deletion
+- order status update
 
-Cart/checkout code validates active product, stock availability, and quantity. Checkout uses a database transaction and product `lockForUpdate()` before decrementing stock.
+The admin UI uses a reusable password confirmation modal. Submitted passwords are not retained in old input and are sanitized from audit logs.
 
-### Contact/About Protection
+## Audit Logging
 
-Contact and about form submissions validate input, use named error bags, and are throttled at `3,10`.
+`AuditLogService` writes selected actions to `audit_logs` and sanitizes password, password confirmation, reset token, OTP, OAuth, 2FA, and secret-like keys before persistence.
 
-They also include local honeypot and timing fields. Bot-like submissions fail validation without external services.
+Current logged areas include:
 
-### Order Confirmation Privacy
+- customer registration completed
+- customer password login 2FA challenge initiation
+- failed customer login
+- customer login 2FA failure/success
+- customer login success
+- customer logout
+- registration email verification success/failure/lockout/resend
+- password reset requested/completed
+- admin failed password login
+- admin login 2FA challenge initiation/failure/resend/success
+- admin login success
+- admin logout
+- Google OAuth success/failure/admin-blocked
+- guest checkout OTP challenge creation/failure/success/resend
+- product create/update
+- category create/update/delete
+- brand create/update/delete
+- order status update
 
-The thank-you page enforces authorization:
+Audit logs must never contain raw passwords, current-password confirmations, reset tokens, OTP codes, OAuth tokens, app passwords, or client secrets.
 
-- authenticated orders can be viewed only by the owning user
-- guest orders can be viewed only by the checkout session that created the order
+## Contact/About Protection
 
-## Email OTP Status
+Contact and about form submissions validate input, use named error bags, have separate named rate limiters, and include honeypot/timing fields. Bot-like submissions fail validation without external services.
 
-IMPLEMENTED: Account email verification uses an OTP flow with:
+## Stock And Order Integrity
 
-- `email_verification_otps` table
-- hashed `code_hash`
-- 10-minute expiry
-- attempt counter with a five-attempt limit
-- registration redirect to OTP verification
-- `EmailVerificationOtpMail`
-- dedicated resend endpoint: `POST /email/verify/resend`, route name `verification.otp.resend`
-- resend replaces the existing OTP, resets attempts to zero, resets expiry to 10 minutes, and updates `last_sent_at`
-- resend is blocked until 15 seconds after `last_sent_at`; early resend does not generate a code, does not send email, and leaves the current OTP valid
-- already verified users are redirected home from the OTP page and resend endpoint
-- successful verification sets `email_verified_at`, deletes the OTP row, and redirects home
-- expired OTPs cannot verify and are deleted
-- Gmail SMTP has been manually configured and tested locally by the developer through environment variables only; no credentials are documented
-- email delivery is queued after the OTP row is securely persisted, so HTTP responses do not wait for Gmail SMTP when an asynchronous queue worker is running
+Cart/checkout code validates active product, stock availability, and quantity. Checkout wraps order creation in `DB::transaction()`, reloads products with `lockForUpdate()`, repeats stock validation, decrements stock, clears cart, and prevents negative inventory.
 
-The storefront is not globally protected with Laravel's `verified` middleware yet. Broader restrictions on unverified customers remain a separate policy decision.
+Products use soft deletion, force deletion is blocked, and no admin product delete route is registered. Order item snapshots preserve product/brand/category/price history.
 
-## Login 2FA Status
+## Email Delivery
 
-IMPLEMENTED: Customer and admin password login use email-based login 2FA:
+Laravel runtime mail is configured through environment variables. `.env.example` documents Gmail SMTP placeholders:
 
-- `login_two_factor_challenges` table
-- separate customer/admin challenge contexts
-- hashed six-digit code storage
-- 10-minute expiry
-- five-attempt limit
-- 15-second resend cooldown
-- route throttling
-- old code invalidation on resend
-- used code deletion after successful login
-- full Laravel authentication only after 2FA succeeds
-- pending user/context/remember/intended state stored server-side in the session
-- email delivery is queued after the challenge row is securely persisted
+- `MAIL_MAILER=smtp`
+- `MAIL_HOST=smtp.gmail.com`
+- `MAIL_PORT=587`
+- `MAIL_ENCRYPTION=tls`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
+- `MAIL_FROM_ADDRESS`
+- `MAIL_FROM_NAME`
 
-Admin 2FA uses the same service and table but requires admin context and rechecks `users.is_admin` before authentication.
+Real Gmail App Passwords and addresses must remain only in `.env` or the runtime environment. Mailpit may exist as a DDEV utility, but it is not the documented Laravel runtime transport.
 
-## Google OAuth Status
+## Known Limitations
 
-IMPLEMENTED application-side with Laravel Socialite. Google OAuth is customer-only, matches by verified Google email, creates non-admin customers for verified Google emails, can mark matching unverified customer accounts verified when Google confirms the email, regenerates the session, and blocks OAuth access to admin accounts.
-
-Manual Google Cloud credentials are still required in environment variables before real Google sign-in can be used.
-
-## Guest Checkout OTP Status
-
-IMPLEMENTED: Guest checkout now validates checkout input, stores pending checkout attributes in the server-side session, emails a six-digit checkout OTP, and creates the order only after successful OTP verification. It does not create a customer account automatically and preserves same-session order confirmation privacy.
-
-## Known Gaps
-
-- Google OAuth still needs real Google Cloud credentials configured manually outside the repository.
-- No global storefront/email-verified access policy.
-- No production security hardening/HTTPS/HSTS documentation as completed.
-- CSP is Report-Only, not enforced.
-
-## Planned Security Work
-
-- Resource-level authorization/policy review.
-- Production hardening, including HTTPS, HSTS, secrets handling, queues, monitoring, and backups.
+- Payment gateway is not implemented.
+- Product Knowledge Layer is implemented separately from this security document.
+- AI chatbot, React chatbot UI, FastAPI service, OpenAI Responses API integration, embeddings/vector database, and image analysis are planned future work and are not implemented.
+- Production deployment, backups, monitoring, and CI/CD are not documented as complete.
 
 ## Secret Handling Rule
 
@@ -192,7 +264,9 @@ Never store or log:
 - reset tokens
 - OTP codes
 - OAuth client secrets
+- OAuth tokens
 - 2FA secrets
 - API keys
 - SMTP credentials
+- Google App Passwords
 - production secrets

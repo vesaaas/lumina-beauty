@@ -69,7 +69,7 @@ Route: `GET /checkout` renders `resources/views/checkout/index.blade.php` with c
 
 ## Account Modal
 
-`/account`, `/login`, and `/register` redirect to home with the account modal opened. Modal UI lives in `resources/views/layouts/app.blade.php`; auth pages also exist for dedicated reset/admin/OTP flows.
+`/account`, `/login`, and `/register` redirect to home with the account modal opened. Modal UI lives in `resources/views/layouts/app.blade.php` and includes the `Continue with Google` link to `auth.google.redirect`. Auth pages also exist for dedicated reset/admin/OTP flows.
 
 ## Guest Versus Authenticated State
 
@@ -85,9 +85,11 @@ Routes:
 - `GET/POST /contact-us`
 
 POST routes validate input, throttle submissions, and send `StorefrontPageMessage`.
+They use isolated `contact` and `about` named rate limiters plus honeypot/timing fields.
 
 ## Known UI/Business Limitations
 
 - Checkout has no payment gateway.
 - Guest checkout email verification is implemented with a session-scoped OTP before order creation.
+- Product Knowledge Layer services are implemented as Laravel/domain foundations for structured catalog retrieval, deterministic recommendations, comparison, and skincare routines. No chatbot UI or AI service is implemented yet.
 - Shared `viewData()` loads broad catalog/navigation data for many pages; future optimization may use view composers or page-specific data.

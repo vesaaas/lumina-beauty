@@ -5,7 +5,7 @@ Date: 2026-08-09
 
 ## Context
 
-The roadmap includes Gmail SMTP, email verification, Google OAuth, login 2FA, guest checkout verification, product knowledge work, and eventually AI chatbot functionality. The current application still has security/admin UX work to finish first, including order status transitions, sensitive-action consistency, and order privacy.
+The roadmap includes Gmail SMTP, email verification, Google OAuth, login 2FA, guest checkout verification, product knowledge work, and eventually AI chatbot functionality. This ADR was created when the application still had security/admin UX work to finish first, including order status transitions, sensitive-action consistency, and order privacy.
 
 ## Decision
 
@@ -20,7 +20,8 @@ Complete security-first modernization before implementing AI/chatbot or other ad
 ## Consequences
 
 - Roadmap work must not be mistaken for implemented functionality.
-- Security and admin UX issues should be resolved before Gmail/OAuth/2FA/chatbot work.
+- Security and admin UX issues were resolved in Phase 1 before Product Knowledge Layer and chatbot work.
+- Follow-up: Phase 2 Product Knowledge Layer was completed after Phase 1. AI/chatbot work remains future work and should still receive a separate architecture decision before implementation.
 - Future AI work should have a separate architecture decision before implementation.
 
 ## Related Files

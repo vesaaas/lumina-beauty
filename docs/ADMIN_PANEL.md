@@ -42,9 +42,11 @@ Routes:
 - `GET /admin/products/{product}/edit`
 - `PUT /admin/products/{product}`
 
-Products can be created and updated, including image uploads. There is intentionally no `admin.products.destroy` route. Product physical deletion must not be reintroduced.
+Products can be created and updated, including image uploads and Phase 2 Product Knowledge metadata. There is intentionally no `admin.products.destroy` route. Product physical deletion must not be reintroduced.
 
-Product create/update writes audit logs.
+Product Knowledge fields are maintained through form controls rather than raw JSON. Admins can set validated skin/hair suitability, concerns, benefits, target areas, key ingredients, routine step, usage instructions/frequency, AM/PM suitability, tri-state factual attributes such as fragrance-free/cruelty-free/vegan/alcohol-free/non-comedogenic, compatibility placeholders, and warnings. `null` means unknown/not documented for nullable factual values. Empty checkbox groups are persisted as known empty/not applicable/intentionally cleared arrays.
+
+Product create/update requires current password through the reusable admin password modal and writes audit logs.
 
 ## Categories
 
@@ -55,7 +57,7 @@ Routes:
 - `PUT /admin/categories/{category}`
 - `DELETE /admin/categories/{category}`
 
-Category deletion requires current password, is blocked if products exist, and writes an audit log when deletion succeeds.
+Category create/update/delete requires current password, deletion is blocked if products exist, and successful mutations write audit logs.
 
 ## Brands
 
@@ -66,7 +68,7 @@ Routes:
 - `PUT /admin/brands/{brand}`
 - `DELETE /admin/brands/{brand}`
 
-Brand deletion requires current password, is blocked if products exist, and writes an audit log when deletion succeeds.
+Brand create/update/delete requires current password, deletion is blocked if products exist, and successful mutations write audit logs.
 
 ## Orders
 
@@ -118,6 +120,7 @@ Current settings page is a read-oriented admin view. Do not store credentials in
 `AuditLogService` is called for:
 
 - admin login success/failure
+- admin login 2FA challenge/failure/resend/success
 - product create/update
 - category create/update/delete
 - brand create/update/delete
@@ -133,6 +136,9 @@ Current sensitive/destructive actions:
 
 - Brand deletion: current password required.
 - Category deletion: current password required.
+- Brand creation/update: current password required.
+- Category creation/update: current password required.
+- Product creation/update: current password required.
 - Order status update: current password required.
 - Product physical deletion: prohibited; no admin route exists.
 

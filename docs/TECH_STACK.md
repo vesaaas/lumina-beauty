@@ -16,6 +16,7 @@
 | --- | --- | --- |
 | MariaDB 10.11 | Active local DB | Configured in `.ddev/config.yaml`. |
 | MySQL/MariaDB SQL | Active assumption | Migrations and some reporting queries target MySQL/MariaDB behavior, including `DATE_FORMAT`. |
+| MariaDB-compatible JSON fields | Active | Product Knowledge stores controlled multi-value catalog metadata in JSON arrays and filters them with Laravel JSON query helpers. |
 | SQLite in-memory | Active for tests | `phpunit.xml` sets `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:`. |
 
 ## Frontend
@@ -39,7 +40,8 @@
 | DDEV | Active | Local Laravel/Docker orchestration. |
 | Docker | Active through DDEV | Containers for web/database/mail services. |
 | nginx-fpm | Active | DDEV webserver type. |
-| Mailpit | Active through DDEV convention | Local email inspection target when environment mail settings use DDEV SMTP. |
+| Gmail SMTP | Active runtime mail target | Laravel runtime mail is configured through environment variables with Gmail SMTP placeholders in `.env.example`; real credentials stay in `.env`. |
+| Mailpit | Optional DDEV utility | May exist for local inspection if the environment is deliberately pointed at DDEV SMTP, but it is not the documented Laravel runtime mail transport. |
 | Node.js 22 | Active local toolchain | DDEV node version for npm/Vite tooling. |
 
 ## Testing And QA
@@ -54,4 +56,4 @@
 
 ## Packages Not Currently Used For Planned Features
 
-No current dependency proves implementation of chatbot, FastAPI, OpenAI API, Vue, React, or payment gateway integration. OTP and login 2FA are implemented with first-party Laravel mail, hashing, validation, sessions, and Eloquent rather than a third-party OTP package.
+No current dependency proves implementation of chatbot, FastAPI, OpenAI API, Vue, React, embeddings/vector search, vector database, or payment gateway integration. OTP and login 2FA are implemented with first-party Laravel mail, hashing, validation, sessions, and Eloquent rather than a third-party OTP package. Product Knowledge is implemented inside Laravel/MariaDB through Eloquent models, services, JSON columns, scalar columns, and nullable booleans.

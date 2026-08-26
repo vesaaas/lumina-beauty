@@ -25,6 +25,7 @@ PLANNED FEATURES MUST NEVER BE TREATED AS IMPLEMENTED FEATURES.
 Before modifying a subsystem, read the relevant docs and then inspect the current source code:
 
 - Authentication/security: [docs/AUTH_SECURITY.md](docs/AUTH_SECURITY.md), [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Product Knowledge: [docs/PRODUCT_KNOWLEDGE_LAYER.md](docs/PRODUCT_KNOWLEDGE_LAYER.md), [docs/DATABASE.md](docs/DATABASE.md), [docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md)
 - Database/schema: [docs/DATABASE.md](docs/DATABASE.md), relevant ADRs in [docs/adr/](docs/adr/)
 - Orders/checkout: [docs/COMMERCE_ORDERS.md](docs/COMMERCE_ORDERS.md)
 - Storefront: [docs/STOREFRONT.md](docs/STOREFRONT.md)
@@ -88,15 +89,12 @@ Change mapping:
 
 ## Prohibited Assumptions
 
-Do not assume these are implemented unless [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) explicitly says so:
+Do not assume these are implemented unless [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) explicitly says so. At the current checkpoint, Phase 1 security/authentication and Phase 2 Product Knowledge are complete, while the following remain not implemented:
 
-- Gmail SMTP
-- Google OAuth
-- email OTP
-- login 2FA
-- guest checkout email verification
 - chatbot
+- React chatbot UI
 - FastAPI
 - OpenAI API
+- embeddings or vector database
 - real payment gateway
 - production deployment

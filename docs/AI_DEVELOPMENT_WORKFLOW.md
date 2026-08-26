@@ -48,4 +48,5 @@ Before final response:
 - list tests/checks run
 - list residual risks or TODOs
 - update docs when required
+- run `git diff --check`
 - confirm no unrelated files were committed or modified

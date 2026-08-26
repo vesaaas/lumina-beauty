@@ -2,9 +2,9 @@
 
 Update this file whenever a meaningful development milestone is completed.
 
-Last reviewed: 2026-08-11  
-Branch reviewed: `feature/security-authentication`  
-Status basis: current working tree inspection; the branch contains uncommitted application and documentation changes.
+Last reviewed: 2026-08-26
+Branch reviewed: `feature/security-authentication`
+Status basis: committed current implementation after completing Phase 2 Product Knowledge Layer. Phase 2 commit `4014b0c` (`Add product knowledge layer foundation`) is local and not pushed at this checkpoint.
 
 ## Runtime
 
@@ -12,6 +12,7 @@ Status basis: current working tree inspection; the branch contains uncommitted a
 - IMPLEMENTED: PHP requirement is `^8.3`; DDEV is configured for PHP `8.4`.
 - IMPLEMENTED: DDEV project `lumina-beauty`, type `laravel`, docroot `public`, nginx-fpm, MariaDB `10.11`, Node.js `22`.
 - IMPLEMENTED: Testing uses PHPUnit `^12.5.12` with in-memory SQLite and `RefreshDatabase`.
+- IMPLEMENTED: Default queue connection is environment-driven; `.env.example` uses `QUEUE_CONNECTION=database`.
 
 ## Frontend
 
@@ -19,70 +20,87 @@ Status basis: current working tree inspection; the branch contains uncommitted a
 - IMPLEMENTED: Active styles/scripts are static files in `public/assets/css` and `public/assets/js`.
 - PARTIAL: Vite and Tailwind 4 are configured, but current visible layouts link public static CSS/JS directly instead of Vite-built assets.
 - IMPLEMENTED: Lucide icons load from `https://unpkg.com`; Google Fonts and Unsplash image URLs are used.
+- IMPLEMENTED: Account modal includes email/password login, registration, and `Continue with Google`.
 
 ## Implemented Major Features
 
 - IMPLEMENTED: Public storefront home page, products, categories, brands, sales, hot trends, product details, filters, and search.
 - IMPLEMENTED: Guest favorites and cart using session/session owner state.
 - IMPLEMENTED: Authenticated favorites and cart using database rows.
-- IMPLEMENTED: Guest-to-user cart/favorite merge on login/register.
+- IMPLEMENTED: Guest-to-user cart/favorite merge on registration, successful customer login 2FA, and successful Google OAuth.
 - IMPLEMENTED: Checkout creates orders and order items, decrements stock, clears cart, and sends pending order email.
-- IMPLEMENTED: Order confirmation pages are protected by authenticated order ownership or same-session guest checkout access.
+- IMPLEMENTED: Guest checkout requires a session-scoped email OTP before order creation.
+- IMPLEMENTED: Order confirmation pages are protected by `OrderPolicy` for authenticated customers/admins or same-session guest checkout access.
 - IMPLEMENTED: Order item snapshots store product/brand/category names and unit/line prices.
 - IMPLEMENTED: Customer registration, email/password login with email login 2FA, logout, and customer password reset.
-- IMPLEMENTED: Admin login with email login 2FA and admin middleware using `users.is_admin`; admin credential validation uses Laravel's auth provider and does not create a full session before 2FA.
+- IMPLEMENTED: Registration email verification OTP with hashed six-digit code storage, 10-minute expiry, five-attempt limit, resend replacement, cooldown, and queued mail.
+- IMPLEMENTED: Customer password login email 2FA with hashed six-digit code storage, 10-minute expiry, five-attempt limit, resend replacement, cooldown, session-bound pending challenge state, and queued mail.
+- IMPLEMENTED: Separate admin login email 2FA using admin context and `users.is_admin`; admin password validation does not create a full session before 2FA.
+- IMPLEMENTED: Google OAuth customer login through Laravel Socialite. Google OAuth is treated as the primary authentication factor and does not require an additional Lumina email OTP/2FA challenge.
+- IMPLEMENTED: Google OAuth rejects admin accounts from the customer OAuth flow, handles missing credentials gracefully, and uses environment-only Google credentials.
 - IMPLEMENTED: Admin dashboard, products, categories, brands, orders, users, reports, discounts, and settings views.
 - IMPLEMENTED: Product soft deletion protection and no registered admin product delete route.
-- IMPLEMENTED: Audit log table/service for selected admin/security actions.
-- IMPLEMENTED: Pre-Gmail security/admin UX hardening: reusable admin password modal, direct `current_password` validation for sensitive admin actions, one-way order status transitions, audit sanitization, session config hardening, and contact/about honeypot timing checks.
-- IMPLEMENTED: Account email OTP verification uses hashed six-digit code storage, 10-minute expiry, a five-attempt limit, registration redirect, queued mailable delivery after challenge persistence, resend replacement, server-side resend cooldown, route throttling, and modal-style verification/resend UX.
-- IMPLEMENTED: Google OAuth application support through Laravel Socialite for customer accounts only; real Google credentials remain manual environment setup.
-- IMPLEMENTED: Guest checkout email OTP verification before order creation.
+- IMPLEMENTED: Audit log table/service for selected admin/security/authentication actions.
+- IMPLEMENTED: Product Knowledge Layer with structured beauty-product metadata for explicit skin/hair suitability, concerns, benefits, target areas, key ingredients, routine steps, usage guidance, compatibility placeholders, and nullable factual attributes.
+- IMPLEMENTED: Product Knowledge retrieval, deterministic recommendation, structured comparison, and deterministic skincare routine services. These are Laravel/MariaDB services, not AI or machine-learning features.
+- IMPLEMENTED: Admin product create/edit management for Product Knowledge metadata using validated controls instead of raw JSON.
+- IMPLEMENTED: Conservative demo catalog knowledge metadata for filtering, comparison, recommendations, and routine ordering.
 
 ## Implemented Security Controls
 
 - IMPLEMENTED: CSRF protection through Laravel web middleware/forms.
-- IMPLEMENTED: Auth login/register/password reset throttling on selected routes.
-- IMPLEMENTED: Stronger registration/reset password rule: minimum 8 characters, mixed case, numbers, symbols, and confirmation.
+- IMPLEMENTED: Strong registration/reset password rule: minimum 8 characters, mixed case, numbers, symbols, and confirmation.
 - IMPLEMENTED: Customer password reset excludes admin users.
 - IMPLEMENTED: Admin routes require `auth` and custom `admin` middleware.
 - IMPLEMENTED: Developer admin provisioning through `AdminUserSeeder` requires configured admin email/password and refuses to silently promote a non-admin email collision.
-- IMPLEMENTED: Admin failed login and selected admin mutations are audit logged.
-- IMPLEMENTED: Security headers middleware adds frame, content type, referrer, permissions, and CSP Report-Only headers.
-- IMPLEMENTED: Product purchase checks block inactive/out-of-stock products and quantities above stock.
-- IMPLEMENTED: Checkout locks product rows before final stock validation/decrement.
-- IMPLEMENTED: Brand deletion, category deletion, and order status updates require current password through direct Laravel `current_password` validation.
-- IMPLEMENTED: Admin sensitive actions use a reusable password confirmation modal; submitted passwords are not logged.
-- IMPLEMENTED: Order status changes are server-side restricted to `pending -> processing/cancelled` and `processing -> completed/cancelled`; `completed` and `cancelled` are terminal.
-- IMPLEMENTED: Audit logging sanitizes password, token, OTP, OAuth, and 2FA secret-like keys before persistence.
-- IMPLEMENTED: Session defaults favor encrypted, HttpOnly, SameSite Lax cookies with secure-cookie auto behavior controlled by environment.
-- IMPLEMENTED: Admin URL responses send no-store/no-cache headers so browser history restores must revalidate after logout.
-- IMPLEMENTED: Contact/about forms have rate limiting plus local honeypot/timing spam protection.
-- IMPLEMENTED: Account email OTP verification redirects already verified users home, blocks expired or over-attempt OTPs, deletes successful/expired OTPs, replaces old OTPs on allowed resend, and rejects early resend without replacing the existing OTP or sending email.
-- IMPLEMENTED: Customer/admin login 2FA stores only hashed codes, expires codes after 10 minutes, blocks after five attempts, supports 15-second resend cooldown, and authenticates only after successful 2FA.
-- IMPLEMENTED: OTP/login 2FA mailables are queued after secure challenge persistence, and challenge pages use shared modal-style Blade UI with progressive countdown/loading/focus enhancements.
-- IMPLEMENTED: Authenticated unverified customers are redirected to email verification before account-backed commerce routes; public browsing and guest checkout remain available.
+- IMPLEMENTED: Isolated named Laravel rate limiters in `AppServiceProvider`; admin/customer/login/2FA/resend/contact/about buckets are separated.
+- IMPLEMENTED: Add to Cart remains intentionally unthrottled by auth/security rate limiters.
+- IMPLEMENTED: Contact/about forms have isolated throttling plus honeypot/timing spam protection.
+- IMPLEMENTED: `SecurityHeaders` adds frame, content type, referrer, permissions, configurable CSP, and production HTTPS-only HSTS behavior.
+- IMPLEMENTED: CSP is report-only by default and can be enforced with `SECURITY_CSP_ENFORCE=true`.
+- IMPLEMENTED: HSTS is sent only when the app is in production, `SECURITY_HSTS_ENABLED=true`, and the request is HTTPS.
+- IMPLEMENTED: Session defaults favor encrypted, HttpOnly, SameSite Lax cookies with secure-cookie behavior controlled by environment.
+- IMPLEMENTED: Registration, login challenge starts, successful authentication, Google OAuth authentication, and logout handle session regeneration/invalidation appropriately.
 - IMPLEMENTED: Authenticated/private storefront, checkout/order, OTP/2FA, and admin responses receive no-store/no-cache/private headers.
+- IMPLEMENTED: `OrderPolicy` protects authenticated order visibility and allows admin view access through policy.
+- IMPLEMENTED: Brand/category create, update, and delete; product create/update; and order status update require current admin password.
+- IMPLEMENTED: Product purchase checks block inactive/out-of-stock products and quantities above stock.
+- IMPLEMENTED: Checkout locks product rows before final stock validation/decrement and prevents negative stock.
+- IMPLEMENTED: Products use soft deletes and block force delete to preserve order history.
+- IMPLEMENTED: Audit logging sanitizes password, token, OTP, OAuth, and 2FA secret-like keys before persistence.
+
+## Email And External Integrations
+
+- IMPLEMENTED: Laravel runtime mail is configured for Gmail SMTP through environment variables in `.env`; real credentials must never be committed.
+- IMPLEMENTED: `.env.example` contains safe Gmail placeholders and `QUEUE_CONNECTION=database`.
+- IMPLEMENTED: OTP/2FA/security mailables are queued with `afterCommit()` after challenge persistence.
+- IMPLEMENTED: Password reset uses Laravel notifications and the configured mail transport.
+- IMPLEMENTED: Mailpit may still exist as a DDEV utility, but it is not the documented Laravel runtime mail transport.
+- MANUAL: Real Gmail delivery requires a Google App Password stored only in `.env` and a running queue worker for queued auth/security mail.
+- MANUAL: Real Google OAuth requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in `.env`.
+- MANUAL: Local Google OAuth callback is `https://lumina-beauty.ddev.site/auth/google/callback`.
 
 ## Tests
 
-- IMPLEMENTED: Feature tests cover product filtering, auth/password reset behavior, registration password policy, registration phone/OTP row creation, email OTP verification/resend/cooldown behavior, login 2FA, Google OAuth controller behavior, guest checkout OTP, checkout persistence, stock rejection, product delete protection, admin deletion/password checks, order status transitions, order status mail/audit behavior, admin post-logout redirect/no-cache behavior, order confirmation privacy, audit secret sanitization, and contact spam protection.
+- IMPLEMENTED: Feature tests cover product filtering, auth/password reset behavior, registration password policy, registration OTP, email OTP verification/resend/cooldown behavior, login 2FA, Google OAuth behavior, guest checkout OTP, checkout persistence, stock rejection, product delete protection, admin deletion/password checks, order status transitions, order status mail/audit behavior, admin post-logout redirect/no-cache behavior, order confirmation privacy, audit secret sanitization, contact/about spam protection, security headers, HSTS behavior, isolated rate limiter regression cases, and Product Knowledge behavior.
+- IMPLEMENTED: Product Knowledge tests cover structured filtering, null versus known-empty metadata semantics, deterministic recommendations, comparison, skincare routine ordering, admin validation/persistence, more-than-50-candidate regression cases, nullable AM/PM filtering, customer-safe comparison visibility, and existing storefront filter regression.
 - IMPLEMENTED: Default feature/unit example tests remain.
-- VERIFIED: Full `ddev artisan test` suite passed: 96 tests, 558 assertions.
+- VERIFIED CHECKPOINT: Full `ddev artisan test` suite passed after Phase 2: 160 tests, 878 assertions, 0 failures.
 
 ## Active Development Phase
 
-IMPLEMENTED: Pre-Gmail security-first modernization is complete for the currently identified security/admin UX issues.
+Phase 1 - Security & Authentication: COMPLETE.
+
+Phase 2 - Product Knowledge Layer: COMPLETE.
+
+Phase 3 - AI Chatbot: NEXT / NOT IMPLEMENTED.
 
 ## Immediate Next Task
 
-Continue with the next planned security/authentication milestone after account email OTP verification is accepted.
+Phase 3 - AI Chatbot planning and implementation. Planned architecture is React chatbot UI -> Python/FastAPI AI service -> OpenAI Responses API -> Lumina Beauty product retrieval -> structured Product Knowledge context -> assistant response.
 
 ## Known Incomplete Work
 
-- IMPLEMENTED LOCALLY: Gmail SMTP was manually configured and tested by the developer through environment variables only; no credentials are stored in repository documentation.
-- MANUAL: Real external mail delivery requires the active runtime mail environment to point at Gmail SMTP rather than DDEV Mailpit, and any running queue worker must be restarted after mail configuration changes.
-- MANUAL: Google OAuth needs real Google Cloud client ID/secret/redirect URI in environment variables before live use.
+- NEXT: AI Chatbot. React chatbot UI, Python/FastAPI AI service, OpenAI Responses API integration, embeddings/vector search, chatbot routes/controllers, and external AI integrations are not implemented yet.
 - PLANNED: Payment gateway.
-- PLANNED: Production deployment, backups, monitoring, CI/CD, queue worker, HTTPS/HSTS.
-- PLANNED: Chatbot, FastAPI, OpenAI Responses API, and AI product knowledge layer.
+- PLANNED: Production deployment, backups, monitoring, CI/CD, and production secret/worker supervision.

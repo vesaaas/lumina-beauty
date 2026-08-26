@@ -22,13 +22,13 @@ Authenticated users store cart rows in `cart_items` keyed by `user_id` and `prod
 
 ## Cart Merge
 
-`AccountAuthController::attachGuestCommerce()` merges:
+`GuestCommerceService` merges:
 
 - session `guest_cart`
 - database cart rows with current `session_id`
 - favorite rows with current `session_id`
 
-into the authenticated user's `cart_items` and `favorites`.
+into the authenticated user's `cart_items` and `favorites` after registration, successful customer login 2FA, or successful Google OAuth.
 
 ## Checkout
 
@@ -117,10 +117,10 @@ Access rules:
 Implemented:
 
 - Authenticated cart item ownership checks.
+- `OrderPolicy` for authenticated order visibility.
 - Order confirmation ownership/session checks.
 - Admin order management behind `auth` and `admin` middleware.
 
 Known gaps:
 
 - Customer order history route is not present.
-- Resource-level authorization/policies remain planned.

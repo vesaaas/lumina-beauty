@@ -20,6 +20,7 @@ Navigation hub for Lumina Beauty repository documentation.
 - [STOREFRONT.md](STOREFRONT.md): Public catalog, home page, search/filtering, product details, favorites, cart, account modal, and routes. Read before storefront work.
 - [ADMIN_PANEL.md](ADMIN_PANEL.md): Admin authentication, dashboard, catalog management, orders, users, reports, discounts, settings, audit logging, and sensitive actions. Read before admin work.
 - [COMMERCE_ORDERS.md](COMMERCE_ORDERS.md): Guest/authenticated carts, checkout, order creation, stock checks, snapshots, status lifecycle, and order privacy behavior. Read before cart, checkout, stock, or order status changes.
+- [PRODUCT_KNOWLEDGE_LAYER.md](PRODUCT_KNOWLEDGE_LAYER.md): Phase 2 structured catalog knowledge schema, known-vs-unknown semantics, retrieval, deterministic recommendations, comparison, skincare routines, admin management, and future chatbot boundary.
 - [EMAIL_INTEGRATIONS.md](EMAIL_INTEGRATIONS.md): Current mail behavior and planned email integrations. Read before changing mailables, password reset delivery, OTP mail, contact forms, or SMTP configuration.
 
 ## Security
@@ -40,12 +41,12 @@ Navigation hub for Lumina Beauty repository documentation.
 
 ## Operations
 
-- [DEPLOYMENT_OPERATIONS.md](DEPLOYMENT_OPERATIONS.md): Current DDEV/Docker/MariaDB/Mailpit setup and planned production operations. Read before environment, deployment, storage, queue, or production config work.
+- [DEPLOYMENT_OPERATIONS.md](DEPLOYMENT_OPERATIONS.md): Current DDEV/Docker/MariaDB setup, Gmail SMTP runtime mail requirements, queue workers, Google OAuth setup, and planned production operations. Read before environment, deployment, storage, queue, or production config work.
 
 ## Roadmap
 
 - [ROADMAP.md](ROADMAP.md): Future work phases and completion criteria. Read only for planned work; it is not evidence that features exist.
-- [KNOWN_ISSUES.md](KNOWN_ISSUES.md): Verified open/in-progress/resolved issues and risks. Read before choosing fixes or declaring an area complete.
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md): Verified open and resolved issues/risks. Read before choosing fixes or declaring an area complete.
 
 ## Architecture Decisions
 

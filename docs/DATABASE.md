@@ -29,7 +29,7 @@ Purpose: customer and admin identity.
 
 Key columns: `id`, `name`, `email` unique, `phone` nullable, `email_verified_at` nullable, `password`, `is_admin`, `remember_token`, timestamps.
 
-Relationships: has many cart items, favorites, orders, audit logs; has one email verification OTP.
+Relationships: has many cart items, favorites, orders, audit logs; has one email verification OTP; has one login two-factor challenge per context.
 
 Deletion behavior: user deletion cascades cart/favorite rows, nulls `orders.user_id`, nulls `audit_logs.user_id`, and cascades OTP rows.
 
@@ -73,6 +73,17 @@ Purpose: sellable catalog products.
 
 Key columns: `category_id`, `brand_id`, `name`, `slug` unique, `description`, `product_type`, `properties` JSON nullable, `gender`, `size`, `price`, `sale_price`, `stock` unsigned, `is_featured`, `is_new_arrival`, `is_hot_trend`, `is_active`, `deleted_at`, timestamps.
 
+Phase 2 Product Knowledge columns: JSON nullable `skin_types`, `hair_types`, `concerns`, `benefits`, `target_areas`, `key_ingredients`, `works_well_with`, `avoid_combining_with`; nullable scalar `routine_step`, `usage_instructions`, `usage_frequency`, `knowledge_warnings`; nullable booleans `am_suitable`, `pm_suitable`, `fragrance_free`, `cruelty_free`, `vegan`, `alcohol_free`, `non_comedogenic`.
+
+Product Knowledge semantics:
+
+- `null` in factual/knowledge fields means unknown or not documented.
+- `[]` in JSON-array knowledge fields means known empty, not applicable, or intentionally cleared.
+- Nullable booleans are tri-state: `true` explicitly yes, `false` explicitly no, `null` unknown.
+- Controlled vocabulary is centralized in `App\Support\Catalog\ProductKnowledge`.
+
+Product Knowledge indexes: `(is_active, stock)` supports active/in-stock retrieval for recommendations and routines. `routine_step` supports routine-step lookup.
+
 Relationships: belongs to category/brand; has many images and order items.
 
 Deletion behavior: products use soft deletes. `Product::booted()` throws on force delete. There is no admin product delete route. Never reintroduce physical product deletion.
@@ -82,6 +93,7 @@ Integrity rules:
 - `stock` is unsigned in schema and must not become negative.
 - Purchase checks must enforce active product and sufficient stock server-side.
 - Product deletion must preserve order history.
+- Product Knowledge retrieval must not treat missing/null knowledge metadata as a positive match.
 
 ### `product_images`
 
@@ -145,7 +157,7 @@ Security rule: never write passwords, reset tokens, OTP codes, OAuth secrets, 2F
 
 ### `email_verification_otps`
 
-Purpose: in-progress customer email verification flow.
+Purpose: temporary customer email verification flow.
 
 Key columns: `user_id` unique, `code_hash`, `expires_at`, `attempts`, `last_sent_at`, timestamps.
 
@@ -174,7 +186,7 @@ Security rule: store only hashed codes. Pending checkout attributes and OTP row 
 ## Laravel System Tables
 
 - `cache`, `cache_locks`: Laravel cache storage.
-- `jobs`, `job_batches`, `failed_jobs`: queue infrastructure tables. Current mail sends are synchronous; production queue worker is planned.
+- `jobs`, `job_batches`, `failed_jobs`: queue infrastructure tables. Auth/security mailables are queued when `QUEUE_CONNECTION=database`; tests use sync queue behavior.
 
 ## Critical Integrity Rules
 

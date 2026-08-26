@@ -20,7 +20,7 @@ Layouts link these assets directly. The app does not currently use Vue or React.
 - Admin layout: `resources/views/admin/layout.blade.php`
 - Storefront pages: `home`, `products`, `categories`, `brands`, `cart`, `favorites`, `checkout`, `about`, `contact`, order thank-you, sales/hot-trends placeholders.
 - Admin pages: dashboard, products, categories, brands, orders, users, reports, discounts, settings.
-- Auth pages: admin login, forgot/reset password, and in-progress OTP verification. The temporary admin confirm-password page has been removed.
+- Auth pages: admin login, forgot/reset password, registration OTP verification, customer login 2FA, admin login 2FA, and guest checkout OTP. The temporary admin confirm-password page has been removed.
 
 ## Components
 
@@ -55,9 +55,9 @@ The storefront and admin use custom CSS. Naming is class-based and purpose-speci
 
 ## Account Modal
 
-The account modal is embedded in `resources/views/layouts/app.blade.php` and opened through route flash state or frontend behavior. `/account`, `/login`, and `/register` redirect to home with the modal flag.
+The account modal is embedded in `resources/views/layouts/app.blade.php` and opened through route flash state or frontend behavior. `/account`, `/login`, and `/register` redirect to home with the modal flag. The modal includes `Continue with Google`, linking to `auth.google.redirect`.
 
-Email verification OTP and customer login 2FA routes render as centered account-style dialogs over the storefront shell. The routes remain server-rendered and functional without JavaScript.
+Email verification OTP and customer login 2FA routes render as centered account-style dialogs over the storefront shell. Guest checkout OTP renders a checkout-scoped challenge. The routes remain server-rendered and functional without JavaScript.
 
 Admin login 2FA uses `resources/views/layouts/admin-auth.blade.php` and the shared code-challenge partial for a compact admin security dialog consistent with the admin login page.
 

@@ -2,7 +2,7 @@
 
 Generated from source inspection on 2026-07-25.
 
-> Historical reference only. This document predates the 2026-08-09 repository-native documentation system and later pre-Gmail security hardening. Use current source code, [CURRENT_STATE.md](CURRENT_STATE.md), and [INDEX.md](INDEX.md) as the implementation/status source of truth.
+> Historical reference only. This document predates the repository-native documentation system and the completed Phase 1 security/authentication modernization. Use current source code, [CURRENT_STATE.md](CURRENT_STATE.md), [AUTH_SECURITY.md](AUTH_SECURITY.md), and [INDEX.md](INDEX.md) as the implementation/status source of truth.
 
 ## Application Overview
 
@@ -871,30 +871,9 @@ Recommended optimizations:
 
 ## Security
 
-Strengths:
+This historical section has been superseded by [AUTH_SECURITY.md](AUTH_SECURITY.md). Current implemented security controls include strong password rules, registration email OTP, customer/admin login email 2FA, guest checkout OTP, Google OAuth customer login, isolated named rate limiters, contact/about anti-spam, `OrderPolicy`, sensitive admin current-password re-authentication, audit logging, configurable CSP/security headers, production HTTPS-only HSTS behavior, no-cache authenticated responses, and checkout stock locking.
 
-- CSRF protection is present on forms.
-- Validation exists for all main mutations.
-- Password hashing uses Laravel cast.
-- Admin routes are middleware-protected.
-- Session regeneration is done after login/register.
-- Product order references are protected from force deletion.
-- Stock is checked inside a transaction with product row locks during checkout.
-
-Vulnerabilities and gaps:
-
-- No throttling on login, admin login, password reset, contact, or about forms.
-- Default seeded admin password is documented in `.env.example`.
-- Admin authorization is a boolean, not role/permission-based.
-- Thank-you route exposes orders by numeric ID and has no owner/signed-token check.
-- Contact/about forms have no CAPTCHA, honeypot, rate limit, or abuse protection.
-- External scripts from `unpkg.com` and Google fonts are loaded without SRI.
-- External Unsplash images are heavily used; product imagery depends on third-party availability and leaks requests.
-- Product/category/brand cascade delete constraints conflict with the goal of protecting historical product/order integrity if database deletions occur outside controller paths.
-- No CSP, security headers, or cookie secure enforcement in app-specific config.
-- Admin forms lack password confirmation for sensitive actions.
-- No audit logging.
-- No payment integration, so real financial security/compliance is not addressed.
+Remaining limitations include no payment integration, no production deployment documentation, and no implemented AI chatbot. The Product Knowledge Layer has been implemented after this historical document's original source-inspection date; see [PRODUCT_KNOWLEDGE_LAYER.md](PRODUCT_KNOWLEDGE_LAYER.md).
 
 ## Laravel Best Practices Followed
 
@@ -913,16 +892,16 @@ Vulnerabilities and gaps:
 ## Laravel Best Practices Missing
 
 - Form Request classes.
-- Policies/gates for resource authorization.
+- Additional policies/gates where future resource-level authorization has value beyond the current `OrderPolicy` and admin middleware.
 - Service/action classes for complex workflows.
-- Queued mail/jobs.
+- Additional queued mail/jobs beyond the current queued auth/security mailables.
 - Pagination on public catalog pages.
 - Database indexes tuned to query patterns.
-- Rate limiting for auth/contact.
+- More browser/end-to-end coverage for throttled frontend flows.
 - API/resource layer or DTOs for complex product serialization.
 - View composers or cached shared view data.
 - Comprehensive test coverage.
-- Deployment hardening: config/cache/routes/views optimization, HTTPS cookie settings, CSP/security headers.
+- Production deployment hardening: config/cache/routes/views optimization, HTTPS termination, queue supervision, backups, monitoring, and production secret management.
 
 ## Refactoring Opportunities
 

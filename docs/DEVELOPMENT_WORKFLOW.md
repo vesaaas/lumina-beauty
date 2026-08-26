@@ -35,14 +35,15 @@ ddev artisan test tests/Feature/CheckoutTest.php
 ```
 
 9. Manually verify UI/workflow where necessary.
-10. Review diff:
+10. Update relevant Markdown documentation when behavior, architecture, security, integrations, tests, or roadmap status changed.
+11. Review diff:
 
 ```bash
 git diff
 git diff --stat
+git diff --check
 ```
 
-11. Update docs when required by `AGENTS.md`.
 12. Make a focused commit only when explicitly instructed or when that is the agreed workflow.
 
 ## DDEV Commands
@@ -72,4 +73,4 @@ ddev npm run build
 
 ## Documentation Rule
 
-When architecture, behavior, security, schema, integrations, roadmap status, or workflow changes materially, update docs in the same change. For formatting-only code changes, documentation updates are usually unnecessary.
+When architecture, behavior, security, schema, integrations, roadmap status, tests, or workflow changes materially, update docs in the same change. Documentation must match the current code and must never contain real credentials. For formatting-only code changes, documentation updates are usually unnecessary.
