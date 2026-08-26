@@ -71,6 +71,58 @@
           @endforeach
         </div>
       </div>
+      @foreach ([
+        'skin_types' => 'Skin Types',
+        'hair_types' => 'Hair Types',
+        'concerns' => 'Concerns',
+        'benefits' => 'Benefits',
+        'target_areas' => 'Target Areas',
+        'key_ingredients' => 'Key Ingredients',
+      ] as $field => $label)
+        @php($selectedValues = old($field.'_present') !== null ? old($field, []) : ($product->{$field} ?? []))
+        <div class="full metadata-checks">
+          <span>{{ $label }}</span>
+          <input type="hidden" name="{{ $field }}_present" value="1" />
+          <div class="check-row">
+            @foreach ($filterOptions[$field] as $value => $optionLabel)
+              <label><input type="checkbox" name="{{ $field }}[]" value="{{ $value }}" @checked(in_array($value, $selectedValues, true)) /> {{ $optionLabel }}</label>
+            @endforeach
+          </div>
+        </div>
+      @endforeach
+      <label>Routine Step
+        <select name="routine_step">
+          <option value="">Unknown / not applicable</option>
+          @foreach ($filterOptions['routine_steps'] as $value => $label)
+            <option value="{{ $value }}" @selected(old('routine_step', $product->routine_step) === $value)>{{ $label }}</option>
+          @endforeach
+        </select>
+      </label>
+      <label>Usage Frequency
+        <select name="usage_frequency">
+          <option value="">Unknown / not documented</option>
+          @foreach ($filterOptions['usage_frequencies'] as $value => $label)
+            <option value="{{ $value }}" @selected(old('usage_frequency', $product->usage_frequency) === $value)>{{ $label }}</option>
+          @endforeach
+        </select>
+      </label>
+      @foreach ([
+        'am_suitable' => 'AM suitable',
+        'pm_suitable' => 'PM suitable',
+      ] + $filterOptions['tri_state_attributes'] as $field => $label)
+        @php($selectedState = old($field, $product->{$field} === null ? 'unknown' : ($product->{$field} ? '1' : '0')))
+        <label>{{ $label }}
+          <select name="{{ $field }}">
+            <option value="unknown" @selected($selectedState === 'unknown')>Unknown</option>
+            <option value="1" @selected($selectedState === '1')>Known yes</option>
+            <option value="0" @selected($selectedState === '0')>Known no</option>
+          </select>
+        </label>
+      @endforeach
+      <label class="full">Usage Instructions <textarea name="usage_instructions" rows="3">{{ old('usage_instructions', $product->usage_instructions) }}</textarea></label>
+      <label class="full">Works Well With <textarea name="works_well_with_text" rows="3">{{ old('works_well_with_text', implode("\n", $product->works_well_with ?? [])) }}</textarea></label>
+      <label class="full">Avoid Combining With <textarea name="avoid_combining_with_text" rows="3">{{ old('avoid_combining_with_text', implode("\n", $product->avoid_combining_with ?? [])) }}</textarea></label>
+      <label class="full">Knowledge Warnings <textarea name="knowledge_warnings" rows="3">{{ old('knowledge_warnings', $product->knowledge_warnings) }}</textarea></label>
       <label class="full">Description <textarea name="description" rows="5" required>{{ old('description', $product->description) }}</textarea></label>
       <label class="full">Product Images <input type="file" name="images[]" multiple accept="image/*" /></label>
 

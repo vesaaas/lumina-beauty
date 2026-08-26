@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Mail\OrderStatusNotification;
+use App\Support\Catalog\ProductKnowledge;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -424,11 +425,53 @@ class AdminController extends Controller
             'properties.*' => ['required', 'string', 'in:'.implode(',', Product::PROPERTIES)],
             'gender' => ['required', 'string', 'in:'.implode(',', Product::GENDERS)],
             'size' => ['required', 'string', 'in:'.implode(',', Product::SIZES)],
+            'skin_types' => ['nullable', 'array'],
+            'skin_types.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('skin_types'))],
+            'hair_types' => ['nullable', 'array'],
+            'hair_types.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('hair_types'))],
+            'concerns' => ['nullable', 'array'],
+            'concerns.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('concerns'))],
+            'benefits' => ['nullable', 'array'],
+            'benefits.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('benefits'))],
+            'target_areas' => ['nullable', 'array'],
+            'target_areas.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('target_areas'))],
+            'key_ingredients' => ['nullable', 'array'],
+            'key_ingredients.*' => ['required', 'string', Rule::in(ProductKnowledge::allowedValuesFor('key_ingredients'))],
+            'routine_step' => ['nullable', 'string', Rule::in(ProductKnowledge::allowedValuesFor('routine_step'))],
+            'usage_instructions' => ['nullable', 'string', 'max:1000'],
+            'usage_frequency' => ['nullable', 'string', Rule::in(ProductKnowledge::allowedValuesFor('usage_frequency'))],
+            'am_suitable' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'pm_suitable' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'fragrance_free' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'cruelty_free' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'vegan' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'alcohol_free' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'non_comedogenic' => ['nullable', 'string', Rule::in(['unknown', '1', '0'])],
+            'works_well_with_text' => ['nullable', 'string', 'max:1000'],
+            'avoid_combining_with_text' => ['nullable', 'string', 'max:1000'],
+            'knowledge_warnings' => ['nullable', 'string', 'max:1000'],
             'price' => ['required', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0', 'lt:price'],
             'stock' => ['required', 'integer', 'min:0'],
             'images.*' => ['nullable', 'image', 'max:4096'],
         ]);
+
+        foreach (ProductKnowledge::arrayFields() as $field) {
+            $fieldWasSubmitted = $request->has($field.'_present') || array_key_exists($field, $attributes);
+
+            $attributes[$field] = ProductKnowledge::normalizeArray(
+                $fieldWasSubmitted ? ($attributes[$field] ?? []) : null,
+                $field
+            );
+        }
+
+        foreach (ProductKnowledge::factualBooleanFields() as $field) {
+            $attributes[$field] = $this->triStateValue($attributes[$field] ?? 'unknown');
+        }
+
+        $attributes['works_well_with'] = $this->linesFromText($attributes['works_well_with_text'] ?? null);
+        $attributes['avoid_combining_with'] = $this->linesFromText($attributes['avoid_combining_with_text'] ?? null);
+        unset($attributes['works_well_with_text'], $attributes['avoid_combining_with_text']);
 
         $attributes['slug'] = $this->uniqueSlug($attributes['name'], $product);
         $attributes['is_featured'] = $request->boolean('is_featured');
@@ -441,12 +484,33 @@ class AdminController extends Controller
 
     private function productFilterOptions(): array
     {
-        return [
-            'product_type' => Product::PRODUCT_TYPES,
-            'properties' => Product::PROPERTIES,
-            'gender' => Product::GENDERS,
-            'size' => Product::SIZES,
-        ];
+        return ProductKnowledge::options();
+    }
+
+    private function triStateValue(?string $value): ?bool
+    {
+        return match ($value) {
+            '1' => true,
+            '0' => false,
+            default => null,
+        };
+    }
+
+    private function linesFromText(?string $value): ?array
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $lines = preg_split('/[\r\n,]+/', $value) ?: [];
+        $normalized = collect($lines)
+            ->map(fn (string $line): string => trim($line))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return $normalized === [] ? null : $normalized;
     }
 
     private function uniqueSlug(string $name, ?Product $product = null): string
